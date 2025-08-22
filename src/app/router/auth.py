@@ -10,6 +10,7 @@ from src.app.database.main import get_session
 from src.app.models import User
 from src.app.services import user as user_service, auth as auth_service
 from src.app.core.dependencies import get_current_user, refresh_token
+from src.app.core import errors
 from src.app.core.utils import (
     verify_password, 
     create_access_token, 
@@ -41,10 +42,7 @@ async def register_user(payload: RegisterUser, session: AsyncSession = Depends(g
     existing_user = await user_service.get_user_email(payload.email, session)
 
     if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered!"
-        )
+        raise errors.UserAlreadyExists()
     
     new_user = await auth_service.register_user(payload=payload, session=session)
 
@@ -117,10 +115,7 @@ async def login(payload: LoginData, session: AsyncSession=Depends(get_session)):
                 }
             )
         
-    raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        detail="Invalid login details!"
-    )
+    raise errors.InvalidEmailOrPassword()
 
 
 @auth_router.get('/auth/me', status_code=status.HTTP_200_OK)
@@ -132,7 +127,7 @@ async def current_user(me: User=Depends(get_current_user)):
 
 
 auth_scheme = HTTPBearer()
-@auth_router.post('/auth/signout', status_code=status.HTTP_200_OK)
+@auth_router.post('/auth/logout', status_code=status.HTTP_200_OK)
 async def logout(bg_task: BackgroundTasks, credentials: HTTPAuthorizationCredentials = Depends(auth_scheme), session: AsyncSession = Depends(get_session)):
 
     """
@@ -152,28 +147,18 @@ async def logout(bg_task: BackgroundTasks, credentials: HTTPAuthorizationCredent
         #will not be neccessary just to control exceptions for ease dev exprience
         revoked_token = await get_blacklisted_token_jti(token_jti, session)
         if revoked_token:
-            raise HTTPException(
-                status_code=status.HTTP_410_GONE,
-                detail="User already logged out"
-            )
-
+            raise errors.UserLoggedOut()
 
         session_id = token_data.get('session_id')
         if not session_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Token is missing session_id"
-            )
+            raise errors.MissingSessionID()
         
         await create_token_blacklist(token, session)
 
         await revoke_refresh_token(session_id, session)
 
     except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid token"
-        )
+        raise errors.InvalidToken()
     
     bg_task.add_task(delete_blacklisted_token, session)
 
@@ -214,7 +199,4 @@ async def get_new_token(token_details: dict = Depends(refresh_token), session: A
             }
         )
     
-    raise HTTPException(
-        status.HTTP_403_FORBIDDEN,
-        detail="Invalid or expired refresh token"
-    )
+    raise errors.RefreshToken()
