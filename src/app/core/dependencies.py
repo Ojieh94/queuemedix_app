@@ -2,9 +2,12 @@ from fastapi.security import HTTPBearer
 from fastapi import Request, Depends, HTTPException, status
 from fastapi.security.http import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio.session import AsyncSession
+from typing import List, Any
 from src.app.database.main import get_session
+from src.app.models import User
 from src.app.core.utils import verify_access_token, validate_refresh_token_jti, get_blacklisted_token_jti
 from src.app.services import user as user_service
+from src.app.core import errors
 
 
 class AccessPass(HTTPBearer):
@@ -21,31 +24,19 @@ class AccessPass(HTTPBearer):
         try:
             token_data = verify_access_token(token)
         except Exception:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token."
-            )
+            raise errors.InvalidToken()
         
         if not token_data:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token."
-            )
+            raise errors.InvalidToken()
         
         if token_data.get('jti') is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token missing 'JTI' likly expired."
-            )
+            raise errors.MissingJTI()
         
         #check if token has been revoked
         token_jti = token_data.get('jti')
         blacklisted_token = await get_blacklisted_token_jti(token_jti, session)
         if blacklisted_token:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Token has already been revoked (User logged out)"
-            )
+            raise errors.TokenRevoked()
         
         await self.verify_token_data(token_data, session)
 
@@ -60,27 +51,18 @@ class AccessTokenBearer(AccessPass):
     async def verify_token_data(self, token_data: dict, session: AsyncSession):
         
         if token_data and token_data.get('refresh'):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid Access Token."
-            )
+            raise errors.AccessToken
 
 class RefreshTokenBearer(AccessPass):
 
     async def verify_token_data(self, token_data: dict, session: AsyncSession):
         
         if token_data and not token_data.get('refresh'):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid Refresh Token."
-            )
+            raise errors.RefreshToken()
         
         refresh_jti = token_data.get('jti')
         if not refresh_jti:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Missing JTI"
-            )
+            raise errors.MissingJTI()
         
         await validate_refresh_token_jti(refresh_jti, session)
 
@@ -92,11 +74,23 @@ async def get_current_user(token_details: dict = Depends(AccessTokenBearer()), s
     user = await user_service.get_user_email(user_email, session)
 
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials."
-        )
+        raise errors.InvalidCred()
+
+    if not user.is_active:
+        raise errors.AccountNotVerified()
     
     return user
+
+class RoleChecker:
+    def __init__(self, allowed_roles: List[str]) -> None:
+        self.allowed_roles = [role for role in allowed_roles]
+
+    def __call__(self, current_user: User = Depends(get_current_user)) -> Any:
+        
+        user_role = current_user.role
+        if user_role in self.allowed_roles:
+            return True
+        
+        raise errors.RoleCheckAccess()
 
 refresh_token = RefreshTokenBearer()
