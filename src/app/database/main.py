@@ -6,9 +6,7 @@ from src.app.core.settings import Config
 
 
 async_engine = AsyncEngine(
-    create_engine(
-        url=Config.DATABASE_URL
-        )
+    create_engine(url=Config.DATABASE_URL)
 )
 
 async def init_db() -> None:

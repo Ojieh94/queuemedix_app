@@ -1,8 +1,8 @@
 from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 import uuid
 from datetime import datetime, date
-from typing import Optional, Union
-from src.app.models import UserRoles, HospitalType, AdminType, AppointmentStatus, RecordType
+from typing import Optional, Union, List
+from src.app.models import UserRoles, HospitalType, AdminType, AppointmentStatus, RecordType,DoctorStatus
 
 
 class EmailStrLower(EmailStr):
@@ -136,8 +136,6 @@ class DoctorBase(BaseModel):
     qualification: str
     bio: Optional[str] = None
     is_available: bool = True
-    years_of_experience: int
-    consultation_fee: Optional[float] = None
 
 class DoctorProfileCreate(DoctorBase):
     pass
@@ -160,6 +158,7 @@ class DoctorProfileUpdate(BaseModel):
 
 class DoctorRead(DoctorBase):
     uid: uuid.UUID 
+    status: DoctorStatus = DoctorStatus.PENDING
     user_uid: uuid.UUID 
     created_at: datetime
     updated_at: datetime
@@ -300,3 +299,14 @@ class LoginData(BaseModel):
         if "@" in v:
             return v.lower()
         return v
+
+class EmailModel(BaseModel):
+    mail_to: List[str]
+
+
+class PasswordResetRequest(BaseModel):
+    email_address: EmailStr
+
+class ConfirmPasswordReset(BaseModel):
+    new_password: str
+    confirm_password: str

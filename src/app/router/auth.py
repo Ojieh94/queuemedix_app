@@ -5,12 +5,13 @@ from fastapi.security.http import HTTPAuthorizationCredentials
 from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from datetime import timedelta, datetime, timezone
-from src.app.schemas import RegisterUser, LoginData
+from src.app.schemas import RegisterUser, LoginData, EmailModel
 from src.app.database.main import get_session
 from src.app.models import User
 from src.app.services import user as user_service, auth as auth_service
 from src.app.core.dependencies import get_current_user, refresh_token
-from src.app.core import errors
+from src.app.core import celery, errors, settings, redis, mails
+from src.app import schemas
 from src.app.core.utils import (
     verify_password, 
     create_access_token, 
@@ -20,7 +21,11 @@ from src.app.core.utils import (
     delete_blacklisted_token,
     get_blacklisted_token_jti,
     verify_access_token,
-    validate_refresh_token_jti
+    validate_refresh_token_jti,
+    create_url_safe_token,
+    decode_url_safe_token,
+    decode_password_url_safe_token,
+    hash_password
     )
 
 
@@ -31,6 +36,8 @@ auth_router = APIRouter(
 
 REFRESH_TOKEN_EXPIRY = 2
 
+auth_scheme = HTTPBearer()
+
 @auth_router.post('/auth/register', status_code=status.HTTP_201_CREATED)
 async def register_user(payload: RegisterUser, session: AsyncSession = Depends(get_session)):
 
@@ -38,6 +45,7 @@ async def register_user(payload: RegisterUser, session: AsyncSession = Depends(g
     Roles: "admin", "doctor", "hospital", "patient"
     
     """
+    email = payload.email
 
     existing_user = await user_service.get_user_email(payload.email, session)
 
@@ -46,8 +54,15 @@ async def register_user(payload: RegisterUser, session: AsyncSession = Depends(g
     
     new_user = await auth_service.register_user(payload=payload, session=session)
 
+    token = create_url_safe_token({"email": email})
+
+    mails.send_verification_email(email, token)
+
+    # Save the token in Redis
+    await redis.save_email_verification_token(email, token)
+
     return {
-        "message": f"{payload.role.capitalize()}'s Account created successfully!",
+        "message": f"{payload.role.capitalize()}'s account created successfully! Please check your email to verify your account.",
         "user": new_user 
     }
 
@@ -59,6 +74,12 @@ async def login(payload: LoginData, session: AsyncSession=Depends(get_session)):
     password = payload.password
 
     user = await user_service.get_login_data(username_or_email, username_or_email, session)
+
+    if not user:
+        raise errors.InvalidEmailOrPassword()
+
+    if not user.is_active:
+        raise errors.AccountNotVerified(user)
 
     if user is not None:
 
@@ -114,8 +135,6 @@ async def login(payload: LoginData, session: AsyncSession=Depends(get_session)):
                     "refresh_token": refresh_token
                 }
             )
-        
-    raise errors.InvalidEmailOrPassword()
 
 
 @auth_router.get('/auth/me', status_code=status.HTTP_200_OK)
@@ -125,8 +144,6 @@ async def current_user(me: User=Depends(get_current_user)):
     return me
 
 
-
-auth_scheme = HTTPBearer()
 @auth_router.post('/auth/logout', status_code=status.HTTP_200_OK)
 async def logout(bg_task: BackgroundTasks, credentials: HTTPAuthorizationCredentials = Depends(auth_scheme), session: AsyncSession = Depends(get_session)):
 
@@ -164,6 +181,8 @@ async def logout(bg_task: BackgroundTasks, credentials: HTTPAuthorizationCredent
 
     return {"Message": "User logged out successfully"}
 
+
+
 @auth_router.get('/auth/access_token', status_code=status.HTTP_200_OK)
 async def get_new_token(token_details: dict = Depends(refresh_token), session: AsyncSession=Depends(get_session)):
 
@@ -200,3 +219,101 @@ async def get_new_token(token_details: dict = Depends(refresh_token), session: A
         )
     
     raise errors.RefreshToken()
+
+
+@auth_router.get('/auth/email_verification/{token}', status_code=status.HTTP_200_OK)
+async def verify_user_account(token: str, session: AsyncSession = Depends(get_session)):
+
+    token_data = decode_url_safe_token(token)
+
+    if not token_data:
+        raise errors.InvalidToken()
+
+    user_email = token_data.get('email')
+
+    if user_email:
+        user = await user_service.get_user_email(user_email, session)
+
+        if not user:
+            raise errors.UserNotFound()
+        
+        await user_service.update_user_info(user, {"is_active": True}, session)
+
+        await redis.delete_email_verification_token(user_email)
+
+        return JSONResponse(
+            content={"message": "Account has been verified successfully!"},
+            status_code=status.HTTP_200_OK
+        )
+    
+    return JSONResponse(
+        content={"message": "An error occured during verification!"},
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+    )
+
+
+#####..........PASSWORD RESET
+
+@auth_router.post('/auth/password-reset')
+async def password_reset_request(email_data: schemas.PasswordResetRequest):
+    
+    email = email_data.email_address
+
+    token = create_url_safe_token({"email": email})
+
+    emails = [email]
+
+    mails.send_password_reset_email(emails, token)
+
+    return JSONResponse(
+        content={"message": "Please check your email for instructions to reset your password."},
+        status_code=status.HTTP_200_OK
+    )
+
+@auth_router.post('/auth/password-resets/{token}', status_code=status.HTTP_200_OK)
+async def confirm_password_reset(passwd_data: schemas.ConfirmPasswordReset, token: str, session: AsyncSession = Depends(get_session)):
+
+    new_password = passwd_data.new_password
+    confirm_password = passwd_data.confirm_password
+
+    if confirm_password != new_password:
+        raise HTTPException(
+            detail={"message": "Password does not match"},
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+
+    token_data = decode_password_url_safe_token(token)
+
+    if not token_data:
+        raise errors.InvalidToken()
+
+    user_email = token_data.get('email')
+
+    if user_email:
+        user = await user_service.get_user_email(user_email, session)
+
+        if not user:
+            raise errors.UserNotFound()
+        
+        hashed_password = hash_password(new_password)
+        
+        await user_service.update_user_info(user, {"hashed_password": hashed_password}, session)
+
+        return JSONResponse(
+            content={"message": "Your password has been changed successfully!"},
+            status_code=status.HTTP_200_OK
+        )
+    
+    return JSONResponse(
+        content={"message": "An error occured during verification!"},
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+    )
+
+
+@auth_router.post('/send_email', status_code=status.HTTP_200_OK)
+async def send_email(email: EmailModel):
+    mail_to = email.mail_to
+
+    mails.send_test(mail_to)
+
+    return {"message": "email sent successfully!"}
