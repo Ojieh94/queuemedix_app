@@ -1,4 +1,5 @@
 import jwt
+import logging
 import uuid
 from sqlmodel import select, delete
 from fastapi import HTTPException, status
@@ -6,6 +7,7 @@ from sqlalchemy.ext.asyncio.session import AsyncSession
 from jwt import PyJWTError, ExpiredSignatureError
 from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
+from itsdangerous import URLSafeTimedSerializer,BadSignature, SignatureExpired
 from src.app.core.settings import Config
 from src.app.models import RefreshToken, BlacklistedToken
 
@@ -164,3 +166,55 @@ async def delete_blacklisted_token(session: AsyncSession):
 
     await session.execute(token)
     await session.commit()
+
+
+###############........Email Token
+def create_url_safe_token(data: dict):
+    url_serializer = URLSafeTimedSerializer(
+        secret_key=Config.JWT_SECRET,
+        salt="email-processing"
+        )
+
+    token = url_serializer.dumps(data)
+    logging.info(f"Created token: {token}")
+
+    return token
+
+def decode_url_safe_token(token: str):
+    url_serializer = URLSafeTimedSerializer(
+        secret_key=Config.JWT_SECRET,
+        salt="email-processing"
+        )
+    try:
+        # logging.info(f"Decoding token: {token}")q
+        token_data = url_serializer.loads(token)
+        print("Decoded token data:", token_data)
+        print("Type of token_data:", type(token_data))
+        # logging.info(f"Decoded data: {token_data}")
+        return token_data
+
+    except Exception as e:
+        logging.error(f"Decode failed: {e}")
+        return None
+
+
+def decode_password_url_safe_token(token: str, max_age: int = 300):  # 300s = 5 mins
+    url_serializer = URLSafeTimedSerializer(
+        secret_key=Config.JWT_SECRET,
+        salt="email-processing"
+    )
+    try:
+        return url_serializer.loads(token, max_age=max_age)
+
+    except SignatureExpired:
+        # Token valid but expired
+        raise HTTPException(
+            status_code=403,
+            detail={"message": "Reset link has expired. Please request a new one."}
+        )
+    except BadSignature:
+        # Token invalid or tampered
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "Invalid reset token"}
+        )

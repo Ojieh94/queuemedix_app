@@ -3,6 +3,7 @@ from typing import Any, Callable
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse
 from src.app.core.utils import create_url_safe_token
+from src.app.core import redis, celery, mails
 # from src.db.redis import get_email_verification_token, save_email_verification_token
 from src.app.core.settings import Config
 # from src.celery_tasks import send_email as celery_worker
@@ -61,9 +62,8 @@ class AppointmentNotFound(ExceptionSystemManager):
 
 class AccountNotVerified(ExceptionSystemManager):
     """Account has not been verified"""
-    # def __init__(self, user):
-    #     self.user = user
-    pass
+    def __init__(self, user):
+        self.user = user
     
 
 class RoleError(ExceptionSystemManager):
@@ -289,17 +289,17 @@ def register_all_errors(app: FastAPI):
     )
     
 
-    app.add_exception_handler(
-        AccountNotVerified,
-        create_exception_handler(
-            status_code=status.HTTP_403_FORBIDDEN,
-            initial_detail={
-                "message": "Account not verified",
-                "error_code": "account_not_verified",
-                "resolution": "Please check your email for verification link"
-            }
-        )
-    )
+    # app.add_exception_handler(
+    #     AccountNotVerified,
+    #     create_exception_handler(
+    #         status_code=status.HTTP_403_FORBIDDEN,
+    #         initial_detail={
+    #             "message": "Account not verified",
+    #             "error_code": "account_not_verified",
+    #             "resolution": "Please check your email for verification link"
+    #         }
+    #     )
+    # )
 
     app.add_exception_handler(
         InvalidCred,
@@ -323,45 +323,39 @@ def register_all_errors(app: FastAPI):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
-    # @app.exception_handler(AccountNotVerified)
-    # async def account_not_verified_handler(request: Request, exc: AccountNotVerified):
-    #     user = exc.user
-    #     user_email = user.email
-    #     existing_token = await get_email_verification_token(user_email)
+    @app.exception_handler(AccountNotVerified)
+    async def account_not_verified_handler(request: Request, exc: AccountNotVerified):
+        user = exc.user
+        user_email = user.email
+        existing_token = await redis.get_email_verification_token(user_email)
 
-    #     if existing_token:
-    #         # Token already in Redis
-    #         return JSONResponse(
-    #             status_code=status.HTTP_403_FORBIDDEN,
-    #             content={
-    #                 "message": "Account not verified.",
-    #                 "error_code": "account_not_verified",
-    #                 "resolution": "Check your email for the verification link."
-    #             }
-    #         )
-    #     else:
-    #         #No active token, create and send
-    #         new_token = create_url_safe_token({"email": user_email})
-    #         verification_link = f"http://{Config.DOMAIN}/api/v1/auth/verify_email/{new_token}"
+        if existing_token:
+            # Token already in Redis
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={
+                    "message": "Verification link sent but account not verified.",
+                    "error_code": "account_not_verified",
+                    "resolution": "Please check your email for the verification link."
+                }
+            )
+        else:
+            #No active token, create and send
+            new_token = create_url_safe_token({"email": user_email})
 
-    #         html_message = f"""
-    #         <h1>Verify your Email Address</h1>
-    #         <p>Please click on the <a href="{verification_link}">link</a> to verify your account</p>
-    #         """
-    #         subject = "Verify your email"
+            emails = [user_email]
 
-    #         # Save the new token
-    #         await save_email_verification_token(user_email, new_token)
+            mails.send_verification_email(emails, new_token)
 
-    #         # Send email asynchronously
-    #         celery_worker.delay([user_email], subject, html_message)
+            # Save the new token
+            await redis.save_email_verification_token(user_email, new_token)
 
-    #         # Respond
-    #         return JSONResponse(
-    #             status_code=status.HTTP_403_FORBIDDEN,
-    #             content={
-    #                 "message": "Account not verified. A new verification link has been sent.",
-    #                 "error_code": "account_not_verified",
-    #                 "resolution": "Check your email for the new verification link."
-    #             }
-    #         )
+            # Respond
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={
+                    "message": "Account not verified. A new verification link has been sent.",
+                    "error_code": "account_not_verified",
+                    "resolution": "Check your email for the new verification link."
+                }
+            )

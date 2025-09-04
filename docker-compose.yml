@@ -1,0 +1,74 @@
+services:
+  queuemedix:
+    build: .
+    container_name: queuemedix_app
+    command: uvicorn src:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/usr/src/app
+    env_file:
+      - .env.docker
+    environment:
+      - ENV=docker
+    depends_on:
+      - db
+      - redis
+
+  celery_worker:
+    build: .
+    container_name: celery_worker
+    command: celery -A src.app.core.celery worker --loglevel=info
+    volumes:
+      - .:/app
+    env_file:
+      - .env.docker
+    environment:
+      - ENV=docker
+    depends_on:
+      - db
+      - redis
+
+  # celery_beat:
+  #   build: .
+  #   container_name: celery_beat
+  #   command: celery -A src.app.core.celery beat --loglevel=info
+  #   volumes:
+  #     - .:/app
+  #   env_file:
+  #     - .env.docker
+  #   environment:
+  #     - ENV=docker
+  #   depends_on:
+  #     - redis
+
+  # flower:
+  #   image: mher/flower
+  #   container_name: flower
+  #   command: flower --broker=${REDIS_URL} --port=5555
+  #   ports:
+  #     - "5555:5555"
+  #   depends_on:
+  #     - redis
+
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    restart: always
+    env_file:
+      - .env.docker
+    environment:
+      - ENV=docker
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

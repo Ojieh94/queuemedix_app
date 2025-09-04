@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from src.app.database.main import init_db
+from src.app.core.errors import register_all_errors
 from src.app.router import auth
 
 version = "v1"
@@ -19,10 +20,6 @@ app = FastAPI(
     version=version,
     lifespan=lifespan,
     docs_url=f"/api/{version}/docs",
-    license_info={
-        "name": "MIT",
-        "url": "https://opensource.org/licenses/mit"
-    },
     contact={
         "name": "Queuemedix Team",
         "email": "queuemedix@gmail.com",
@@ -30,8 +27,12 @@ app = FastAPI(
     }
 )
 
+#Exception block
+register_all_errors(app)
 
+#app routers
 app.include_router(auth.auth_router, prefix=f"/api/{version}")
+
 
 
 @app.get('/')

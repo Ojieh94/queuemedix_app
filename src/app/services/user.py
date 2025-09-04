@@ -27,3 +27,12 @@ async def get_login_data(username: str, email: str, session: AsyncSession):
         user = await get_user_email(email, session)
         return user
     return None
+
+async def update_user_info(user: User, user_data: dict, session: AsyncSession):
+        
+        for k, v in user_data.items():
+            setattr(user, k, v)
+
+        await session.commit()
+        
+        return user
