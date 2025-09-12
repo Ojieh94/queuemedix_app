@@ -236,7 +236,7 @@ def register_all_errors(app: FastAPI):
         create_exception_handler(
             status_code=status.HTTP_401_UNAUTHORIZED,
             initial_detail={
-                "message": "You do not have the permission to continue!",
+                "message": "Sorry buddy... you do not have the permission to continue!",
                 "error_code": "unauthorized_user"
             }
         )

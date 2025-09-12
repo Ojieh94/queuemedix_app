@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from src.app.database.main import init_db
 from src.app.core.errors import register_all_errors
-from src.app.router import auth
+from src.app.router import auth, patients
 
 version = "v1"
 
@@ -32,6 +32,7 @@ register_all_errors(app)
 
 #app routers
 app.include_router(auth.auth_router, prefix=f"/api/{version}")
+app.include_router(patients.pat_router, prefix=f"/api/{version}")
 
 
 
