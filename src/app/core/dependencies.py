@@ -77,7 +77,7 @@ async def get_current_user(token_details: dict = Depends(AccessTokenBearer()), s
         raise errors.InvalidCred()
 
     if not user.is_active:
-        raise errors.AccountNotVerified()
+        raise errors.AccountNotVerified(user)
     
     return user
 

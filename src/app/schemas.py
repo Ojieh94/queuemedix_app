@@ -310,3 +310,18 @@ class PasswordResetRequest(BaseModel):
 class ConfirmPasswordReset(BaseModel):
     new_password: str
     confirm_password: str
+
+
+#############.....USER RETURN TO GET UUID CREATE FOR THE EXTRA TABLES FOR DEVELOPMENT PURPOSE
+class UserReadMe(UserBase):
+    uid: uuid.UUID
+    role: UserRoles
+    is_active: bool = False
+    created_at: datetime
+    updated_at: datetime
+    admin: Optional[AdminRead]
+    patient: Optional[PatientRead]
+    doctor: Optional[DoctorRead]
+    hospital: Optional[HospitalRead]
+
+    model_config = ConfigDict(from_attributes=True)

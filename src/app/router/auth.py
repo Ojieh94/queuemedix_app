@@ -78,8 +78,8 @@ async def login(payload: LoginData, session: AsyncSession=Depends(get_session)):
     if not user:
         raise errors.InvalidEmailOrPassword()
 
-    if not user.is_active:
-        raise errors.AccountNotVerified(user)
+    # if not user.is_active:
+    #     raise errors.AccountNotVerified(user)
 
     if user is not None:
 
@@ -137,7 +137,7 @@ async def login(payload: LoginData, session: AsyncSession=Depends(get_session)):
             )
 
 
-@auth_router.get('/auth/me', status_code=status.HTTP_200_OK)
+@auth_router.get('/auth/me', status_code=status.HTTP_200_OK, response_model=schemas.UserReadMe)
 async def current_user(me: User=Depends(get_current_user)):
 
     """This endpoint returns the currently authenticated user's info"""
