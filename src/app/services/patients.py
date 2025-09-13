@@ -25,7 +25,8 @@ async def update_patient(payload: PatientProfileUpdate, patient_uid: str, sessio
         for k, v in patient_dict.items():
             setattr(patient_to_update, k, v)
         
-            await session.commit()
+        await session.commit()
+        await session.refresh(patient_to_update)
         
         return patient_to_update
     

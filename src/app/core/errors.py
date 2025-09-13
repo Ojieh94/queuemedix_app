@@ -40,6 +40,10 @@ class UserNotFound(ExceptionSystemManager):
     """User does not exist!"""
     pass
 
+class HospitalNotFound(ExceptionSystemManager):
+    """Hospital does not exist!"""
+    pass
+
 class InvalidEmailOrPassword(ExceptionSystemManager):
     """Invalid email or password"""
     pass
@@ -252,7 +256,7 @@ def register_all_errors(app: FastAPI):
             }
         )
     )
-    # ApplicationNotFound
+    # AppointmentNotFound
     app.add_exception_handler(
         AppointmentNotFound,
         create_exception_handler(
@@ -260,6 +264,18 @@ def register_all_errors(app: FastAPI):
             initial_detail={
                 "message": "Appointment not found",
                 "error_code": "appointment_not_found"
+            }
+        )
+    )
+
+     # HospitalNotFound
+    app.add_exception_handler(
+        HospitalNotFound,
+        create_exception_handler(
+            status_code=status.HTTP_404_NOT_FOUND,
+            initial_detail={
+                "message": "Hospital not found",
+                "error_code": "hospital_not_found"
             }
         )
     )
