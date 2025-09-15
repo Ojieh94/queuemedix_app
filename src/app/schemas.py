@@ -156,6 +156,9 @@ class DoctorProfileUpdate(BaseModel):
     years_of_experience: Optional[int] = None
     consultation_fee: Optional[float] = None
 
+class DoctorAssign(BaseModel):
+    doctor_uid: str
+
 class DoctorRead(DoctorBase):
     uid: uuid.UUID 
     status: DoctorStatus = DoctorStatus.PENDING
@@ -196,6 +199,7 @@ class AdminRead(AdminBase):
 class AppointmentBase(BaseModel):
     appointment_note: str
     scheduled_time: datetime
+    hospital_uid: uuid.UUID
 
 class AppointmentCreate(AppointmentBase):
     pass
@@ -208,10 +212,12 @@ class AppointmentUpdate(BaseModel):
     scheduled_time: Optional[datetime] = None
     rescheduled_from: Optional[uuid.UUID] = None
 
+class AppointmentStatusUpdate(BaseModel):
+    status: AppointmentStatus
+
 class AppointmentRead(AppointmentBase):
     uid: uuid.UUID
     patient_uid: uuid.UUID
-    hospital_uid: uuid.UUID
     doctor_uid: uuid.UUID
     status: AppointmentStatus = AppointmentStatus.PENDING
     rescheduled_from: Optional[uuid.UUID] = None
