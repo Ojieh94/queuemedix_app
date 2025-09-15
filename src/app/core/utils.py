@@ -218,3 +218,12 @@ def decode_password_url_safe_token(token: str, max_age: int = 300):  # 300s = 5 
             status_code=400,
             detail={"message": "Invalid reset token"}
         )
+
+
+def remaining_time(created_at: datetime) -> str:
+    time_diff = created_at - datetime.now()
+    total_seconds = int(time_diff.total_seconds())
+    days, remainder = divmod(total_seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{days} days, {hours} hours, {minutes} minutes, {seconds} seconds"
