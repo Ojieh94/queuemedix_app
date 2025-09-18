@@ -1,11 +1,11 @@
 from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, status, HTTPException
-from src.app.core.dependencies import get_current_user
+from src.app.core.dependencies import RoleChecker, get_current_user
 from sqlalchemy.ext.asyncio.session import AsyncSession
-from src.app.schemas import AppointmentCreate, AppointmentRead, DoctorAssign, AppointmentStatusUpdate
-from src.app.models import User, Appointment, AppointmentStatus, UserRoles, AdminType
-from src.app.services import appointment as apt_service, patients as pat_service, hospital as hp_service, department as dpt_service
+from src.app.schemas import AppointmentCreate, AppointmentRead, DoctorAssign, AppointmentStatusUpdate, MedicalRecordCreate
+from src.app.models import Admin, Doctor, User, Appointment, AppointmentStatus, UserRoles, AdminType
+from src.app.services import appointment as apt_service, patients as pat_service, hospital as hp_service, department as dpt_service, medical_records as med_service
 from src.app.database.main import get_session
 from src.app.core import errors, permissions
 from src.app.router.queue_engine import notify_queue_update
@@ -24,6 +24,8 @@ switch apointment status
 apt_router = APIRouter(
     tags=['Appointments']
 )
+
+admin_and_doctor = Depends(RoleChecker(["doctor", "admin"]))
 
 
 @apt_router.post('/appointments/new_appointment', status_code=status.HTTP_201_CREATED, response_model=AppointmentRead)
@@ -238,8 +240,36 @@ async def delete_db_appointment(appointment_uid: str, session: AsyncSession = De
     if not appointment:
         raise errors.AppointmentNotFound()
     
-    #acces control
+    #access control
     if current_user.uid != appointment.patient.user_uid:
         raise errors.NotAuthorized()
     
     await apt_service.delete_appointment(appointment_uid, session)
+
+
+# #############################-----------###################
+@apt_router.post('/appointments/{appointment_id}/medical_records', dependencies=[admin_and_doctor], status_code=status.HTTP_201_CREATED)
+async def create_medical_record(appointment_id: str, payload: MedicalRecordCreate, session: AsyncSession = Depends(get_session), current_user: Admin | Doctor = Depends(get_current_user)):
+    """
+
+        This endpoint is for doctors or hospital admin to create medical records, these entities will create the medical records from the appointment routes so that doctor id, patient id and hospital id are automatically assigned to medical records from the appointment details
+    
+    """
+    if current_user.admin_type == AdminType.SUPER_ADMIN:
+        raise errors.NotAuthorized()
+
+    appointment = await apt_service.get_appointment_by_id(appointment_uid=appointment_id, session=session)
+
+    if appointment is None:
+        raise errors.AppointmentNotFound()
+
+    if current_user.hospital_uid != appointment.hospital_uid:
+        raise errors.NotAuthorized()
+
+    payload.hospital_uid = appointment.hospital_uid
+    payload.patient_uid = appointment.patient_uid
+    payload.doctor_uid = appointment.doctor_uid
+
+    new_record = await med_service.create_medical_record(payload=payload, session=session)
+
+    return new_record

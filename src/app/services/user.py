@@ -36,3 +36,35 @@ async def update_user_info(user: User, user_data: dict, session: AsyncSession):
         await session.commit()
         
         return user
+
+
+async def get_all_users(skip: int, limit: int, session: AsyncSession):
+
+    stmt = select(User).offset(skip).limit(limit)
+    result = await session.execute(stmt)
+
+    return result.scalars().all()
+
+
+async def get_user_by_id(user_id: str, session: AsyncSession):
+
+    stmt = select(User).where(User.uid == user_id)
+    result = await session.execute(stmt)
+
+    return result.scalar_one_or_none()
+
+
+async def delete_user(user_id: str, session: AsyncSession):
+
+    user = await get_user_by_id(user_id=user_id, session=session)
+
+    if user is not None:
+
+        await session.delete(user)
+
+        await session.commit()
+
+        return {}
+
+    else:
+        return None
