@@ -131,6 +131,7 @@ class DoctorBase(BaseModel):
     state_of_residence: str
     home_address: str
     hospital_uid: Optional[uuid.UUID] = None
+    department_uid: Optional[uuid.UUID] = None
     license_number: str
     specialization: str
     qualification: str
@@ -148,6 +149,7 @@ class DoctorProfileUpdate(BaseModel):
     country: Optional[str] = None
     state_of_residence: Optional[str] = None
     hospital_uid: Optional[uuid.UUID] = None
+    department_uid: Optional[uuid.UUID] = None
     license_number: Optional[str] = None
     specialization: Optional[str] = None
     qualification: Optional[str] = None
@@ -162,7 +164,8 @@ class DoctorAssign(BaseModel):
 class DoctorRead(DoctorBase):
     uid: uuid.UUID 
     status: DoctorStatus = DoctorStatus.PENDING
-    user_uid: uuid.UUID 
+    user_uid: uuid.UUID
+    department_uid: uuid.UUID
     created_at: datetime
     updated_at: datetime
 
@@ -200,6 +203,7 @@ class AppointmentBase(BaseModel):
     appointment_note: str
     scheduled_time: datetime
     hospital_uid: uuid.UUID
+    department_uid: uuid.UUID
 
 class AppointmentCreate(AppointmentBase):
     pass
@@ -207,10 +211,13 @@ class AppointmentCreate(AppointmentBase):
 class AppointmentCancel(BaseModel):
     cancellation_reason: str
 
-class AppointmentUpdate(BaseModel):
-    appointment_note: Optional[str] = None
-    scheduled_time: Optional[datetime] = None
-    rescheduled_from: Optional[uuid.UUID] = None
+"""Might be needed in future"""
+# class AppointmentUpdate(BaseModel):
+#     appointment_note: Optional[str] = None
+#     scheduled_time: Optional[datetime] = None
+#     rescheduled_from: Optional[uuid.UUID] = None
+#     hospital_uid: Optional[uuid.UUID] = None
+#     department_uid: Optional[uuid.UUID] = None
 
 class AppointmentStatusUpdate(BaseModel):
     status: AppointmentStatus
@@ -240,6 +247,8 @@ class DepartmentRead(BaseModel):
     uid: uuid.UUID
     name: str
     hospital_uid: uuid.UUID
+    appointment_uid: uuid.UUID
+    doctor_iud: uuid.UUID
     created_at: datetime
     updated_at: datetime
 

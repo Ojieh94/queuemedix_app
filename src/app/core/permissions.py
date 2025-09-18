@@ -1,6 +1,6 @@
 from typing import List
 from src.app.core import errors
-from src.app.models import User, Appointment, UserRoles, AdminType
+from src.app.models import User, Appointment, UserRoles, AdminType, Department
 
 
 def access_grant_for_patient_appointments(
@@ -28,7 +28,7 @@ def access_grant_for_patient_appointments(
         return [apt for apt in appointments if apt.hospital_uid == current_user.hospital.uid]
 
     elif current_user.role == UserRoles.DOCTOR:
-        return [apt for apt in appointments if apt.hospital_uid == current_user.doctor.hospital_uid]
+        return [apt for apt in appointments if apt.doctor_uid == current_user.doctor.uid]
 
     elif current_user.role == UserRoles.PATIENT:
         if current_user.uid != patient.user_uid:
@@ -54,10 +54,7 @@ def access_grant_for_hospital_appointments(
             return appointments
 
         # Hospital admin.... only appointments in their hospital
-        elif current_user.admin.admin_type == AdminType.HOSPITAL_ADMIN:
-            return [apt for apt in appointments if apt.hospital_uid == current_user.hospital.uid]
-        
-        elif current_user.admin.admin_type == AdminType.DEPARTMENT_ADMIN:
+        elif current_user.admin.admin_type in {AdminType.HOSPITAL_ADMIN, AdminType.DEPARTMENT_ADMIN}:
             return [apt for apt in appointments if apt.hospital_uid == current_user.hospital.uid]
 
         else:
@@ -67,7 +64,7 @@ def access_grant_for_hospital_appointments(
         return [apt for apt in appointments if apt.hospital_uid == current_user.hospital.uid]
 
     elif current_user.role == UserRoles.DOCTOR:
-        return [apt for apt in appointments if apt.hospital_uid == current_user.doctor.hospital_uid]
+        return [apt for apt in appointments if apt.doctor_uid == current_user.doctor.uid]
 
     else:
         raise errors.NotAuthorized()
@@ -87,12 +84,7 @@ def check_appointment_access(
         if current_user.admin.admin_type == AdminType.SUPER_ADMIN:
             return appointment
         
-        elif current_user.admin.admin_type == AdminType.HOSPITAL_ADMIN:
-            if appointment.hospital_uid == current_user.hospital.uid:
-                return appointment
-            raise errors.NotAuthorized()
-        
-        elif current_user.admin.admin_type == AdminType.DEPARTMENT_ADMIN:
+        elif current_user.admin.admin_type in {AdminType.HOSPITAL_ADMIN, AdminType.DEPARTMENT_ADMIN}:
             if appointment.hospital_uid == current_user.hospital.uid:
                 return appointment
             raise errors.NotAuthorized()
@@ -103,7 +95,7 @@ def check_appointment_access(
         raise errors.NotAuthorized()
 
     elif current_user.role == UserRoles.DOCTOR:
-        if appointment.hospital_uid == current_user.doctor.hospital_uid:
+        if appointment.doctor_uid == current_user.doctor.uid:
             return appointment
         raise errors.NotAuthorized()
 
@@ -125,12 +117,7 @@ def general_access(
         if current_user.admin.admin_type == AdminType.SUPER_ADMIN:
             return appointment
         
-        elif current_user.admin.admin_type == AdminType.HOSPITAL_ADMIN:
-            if appointment.hospital_uid == current_user.hospital.uid:
-                return appointment
-            raise errors.NotAuthorized()
-        
-        elif current_user.admin.admin_type == AdminType.DEPARTMENT_ADMIN:
+        elif current_user.admin.admin_type in {AdminType.HOSPITAL_ADMIN, AdminType.DEPARTMENT_ADMIN}:
             if appointment.hospital_uid == current_user.hospital.uid:
                 return appointment
             raise errors.NotAuthorized()
@@ -141,7 +128,7 @@ def general_access(
         raise errors.NotAuthorized()
 
     elif current_user.role == UserRoles.DOCTOR:
-        if appointment.hospital_uid == current_user.doctor.hospital_uid:
+        if appointment.doctor_uid == current_user.doctor.uid:
             return appointment
         raise errors.NotAuthorized()
     
@@ -178,9 +165,83 @@ def general_access_list(
         return [apt for apt in appointments if apt.hospital_uid == current_user.hospital.uid]
 
     elif current_user.role == UserRoles.DOCTOR:
-        return [apt for apt in appointments if apt.hospital_uid == current_user.doctor.hospital_uid]
+        return [apt for apt in appointments if apt.doctor_uid == current_user.doctor.uid]
 
     elif current_user.role == UserRoles.PATIENT:
         return {apt for apt in appointments if apt.patient_uid == current_user.patient.uid}
     else:
         raise errors.NotAuthorized()
+
+
+
+
+#
+#
+#   PERMISSIONS FOR DEPARTMENT ENDPOINTS
+#
+
+def check_department_permission(current_user: User, hospital_uid: str):
+    """
+    Restrict creation access to Admins of the hospital or Super Admins
+    """
+    if current_user.role == UserRoles.HOSPITAL:
+        if current_user.hospital.uid == hospital_uid:
+            return
+    
+    elif current_user.admin.admin_type in {AdminType.HOSPITAL_ADMIN, AdminType.DEPARTMENT_ADMIN}:
+        if current_user.hospital.uid == hospital_uid:
+            return
+        raise errors.NotAuthorized()
+
+    raise errors.NotAuthorized()
+
+
+def list_department_permission(current_user: User, departments: List[Department]):
+    
+    if current_user.role == UserRoles.ADMIN:
+        if current_user.admin.admin_type == AdminType.SUPER_ADMIN:
+            return
+        elif current_user.admin.admin_type in {AdminType.HOSPITAL_ADMIN, AdminType.DEPARTMENT_ADMIN}:
+            for dpt in departments:
+                if current_user.hospital.uid == dpt.hospital_uid:
+                    return
+            raise errors.NotAuthorized()
+    elif current_user.role == UserRoles.HOSPITAL:
+        for dpt in departments:
+            if current_user.hospital.uid == dpt.hospital_uid:
+                return
+        raise errors.NotAuthorized()
+    
+    elif current_user.role == UserRoles.PATIENT:
+        return
+
+    raise errors.NotAuthorized()
+
+
+def get_department_permission(current_user: User, department: Department):
+  
+    if current_user.role == UserRoles.ADMIN:
+        if current_user.admin.admin_type == AdminType.SUPER_ADMIN:
+            return
+        elif current_user.admin.admin_type in {AdminType.HOSPITAL_ADMIN, AdminType.DEPARTMENT_ADMIN}:
+            if current_user.hospital.uid == department.hospital_uid:
+                return
+            raise errors.NotAuthorized()
+    elif current_user.role == UserRoles.HOSPITAL:
+        if current_user.hospital.uid == department.hospital_uid:
+            return
+        raise errors.NotAuthorized()
+    
+    elif current_user.role == UserRoles.PATIENT:
+        return
+
+    raise errors.NotAuthorized()
+
+
+def update_department_permission(current_user: User, department: Department):
+  
+    if current_user.admin.admin_type in {AdminType.DEPARTMENT_ADMIN, AdminType.HOSPITAL_ADMIN}:
+        if current_user.hospital.uid == department.hospital_uid:
+            return
+
+    raise errors.NotAuthorized()
