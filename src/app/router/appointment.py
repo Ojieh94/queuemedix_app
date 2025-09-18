@@ -5,7 +5,7 @@ from src.app.core.dependencies import get_current_user
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from src.app.schemas import AppointmentCreate, AppointmentRead, DoctorAssign, AppointmentStatusUpdate
 from src.app.models import User, Appointment, AppointmentStatus, UserRoles, AdminType
-from src.app.services import appointment as apt_service, patients as pat_service, hospital as hp_service
+from src.app.services import appointment as apt_service, patients as pat_service, hospital as hp_service, department as dpt_service
 from src.app.database.main import get_session
 from src.app.core import errors, permissions
 from src.app.router.queue_engine import notify_queue_update
@@ -28,6 +28,8 @@ apt_router = APIRouter(
 
 @apt_router.post('/appointments/new_appointment', status_code=status.HTTP_201_CREATED, response_model=AppointmentRead)
 async def add_appointment(patient_uid: str, payload: AppointmentCreate, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+
+    """Please note, you can not edit an appointment after creating"""
 
     patient = await pat_service.get_patient(patient_uid, session)
 
@@ -62,6 +64,13 @@ async def add_appointment(patient_uid: str, payload: AppointmentCreate, session:
     if not hospital:
         raise errors.HospitalNotFound()
     
+
+    # Check if the department exists
+    department = await dpt_service.get_department_by_id(payload.department_uid, session)
+
+    if not hospital:
+        raise errors.DepartmentNotFound()
+    
     #assigning access
     if current_user.role != UserRoles.PATIENT:
         raise errors.NotAuthorized()
@@ -72,38 +81,34 @@ async def add_appointment(patient_uid: str, payload: AppointmentCreate, session:
     return {"message": "Appointment created successfully!"}
 
 
-@apt_router.patch('/appointments/{appointment_uid}', status_code=status.HTTP_202_ACCEPTED)
-async def assign_doctor(appointment_uid: str, payload: DoctorAssign, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+"""This is an Admin route....... we will come back to this. Because the doctor being assigned must be under the appointment department"""
+# @apt_router.patch('/appointments/{appointment_uid}', status_code=status.HTTP_202_ACCEPTED)
+# async def assign_doctor(appointment_uid: str, payload: DoctorAssign, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
     
-    appointment = await apt_service.get_appointment_by_id(appointment_uid, session)
+#     appointment = await apt_service.get_appointment_by_id(appointment_uid, session)
 
-    if not appointment:
-        raise errors.AppointmentNotFound()
+#     if not appointment:
+#         raise errors.AppointmentNotFound()
     
-    #access control
-    permissions.check_appointment_access(current_user, appointment)
+#     #access control
+#     permissions.check_appointment_access(current_user, appointment)
 
     
-    # Check if the doctor is available...............(awaiting doctor's service)
-    doctor = await apt_service.get_single_doctor(payload.doctor_uid, session)
+#     # Check if the doctor is available...............(awaiting doctor's service)
+#     doctor = await apt_service.get_single_doctor(payload.doctor_uid, session)
 
-    if not doctor:
-        raise errors.DoctorNotFound()
+#     if not doctor:
+#         raise errors.DoctorNotFound()
     
-    if not doctor.is_available:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Doctor is currently not available")
+#     if not doctor.is_available:
+#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Doctor is currently not available")
     
-    # Assign doctor to the appointment
-    appointment.doctor_uid = payload.doctor_uid
-    await session.commit()
-    await session.refresh(appointment)
+#     # Assign doctor to the appointment
+#     appointment.doctor_uid = payload.doctor_uid
+#     await session.commit()
+#     await session.refresh(appointment)
 
-    #change doctor availability status
-    doctor.is_available = False
-    await session.commit()
-    await session.refresh(doctor)
-
-    return {"message": "Doctor assigned successfully!"}
+    # return {"message": "Doctor assigned successfully!"}
 
 
 @apt_router.get('/appointments', status_code=status.HTTP_200_OK, response_model=List[AppointmentRead])
@@ -199,12 +204,6 @@ async def cancel_appointment(appointment_uid: str, session: AsyncSession = Depen
         raise errors.NotAuthorized()
     
     await apt_service.cancel_appointment(appointment_uid, session)
-
-    doctor = await apt_service.get_single_doctor(appointment.doctor_uid, session)
-
-    doctor.is_available = True
-    await session.commit()
-    await session.refresh(doctor)
 
     await notify_queue_update(session, appointment.hospital_uid)
 

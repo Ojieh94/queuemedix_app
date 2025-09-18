@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from typing import List, Optional
 from src.app.models import Appointment, AppointmentStatus, Doctor
-from src.app.schemas import AppointmentCreate, AppointmentStatusUpdate
+from src.app.schemas import AppointmentCreate, AppointmentStatusUpdate, AppointmentUpdate
 from src.app.router.queue_engine import notify_queue_update
 
 """
@@ -29,6 +29,26 @@ async def create_appointment(patient_uid: str, payload: AppointmentCreate, sessi
 
     return new_appointment 
 
+
+# async def update_appointment(appointment_uid: str, payload: AppointmentUpdate, session: AsyncSession):
+
+#     appointment_to_update = await get_appointment_by_id(appointment_uid, session)
+
+#     if appointment_to_update:
+
+#         appointment_dict = payload.model_dump(exclude_unset=True)
+
+#         for k, v in appointment_dict.items():
+#             setattr(appointment_to_update, k, v)
+
+#         await session.commit()
+#         await session.refresh(appointment_to_update)
+
+#         return appointment_to_update
+    
+#     else:
+#         return None
+    
 
 async def get_appointments(skip: int, limit: int, status: Optional[AppointmentStatus], session: AsyncSession) -> List[Appointment]:
 
@@ -124,6 +144,7 @@ async def get_patient_pending_appointments(patient_uid: str, session: AsyncSessi
     result = await session.execute(stmt)
 
     return result.scalar_one_or_none()
+
 
 async def switch_appointment_status(appointment_uid: str, new_status: AppointmentStatusUpdate, session: AsyncSession) -> Appointment:
 

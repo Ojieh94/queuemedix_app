@@ -134,6 +134,7 @@ class Doctor(SQLModel, table=True):
     state_of_residence: str = Field(default=None)
     home_address: str = Field(default=None)
     hospital_uid: Optional[uuid.UUID] = Field(default=None, sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("hospitals.uid", ondelete="CASCADE"), nullable=True, index=True))
+    department_uid: Optional[uuid.UUID] = Field(default=None, sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("departments.uid", ondelete="CASCADE"), nullable=True, index=True))
     license_number: str = Field(default=None, sa_column=Column(String, unique=True, nullable=False))
     specialization: str = Field(default=None)
     qualification: str = Field(default=None)
@@ -150,6 +151,7 @@ class Doctor(SQLModel, table=True):
     user: "User" = Relationship(back_populates="doctor", sa_relationship_kwargs={"lazy": "selectin"})
     hospital: "Hospital" = Relationship(back_populates="doctor", sa_relationship_kwargs={"lazy": "selectin"})
     appointment: List["Appointment"] = Relationship(back_populates="doctor", sa_relationship_kwargs={"lazy": "selectin"}, passive_deletes=True)
+    department: "Department" = Relationship(back_populates="doctors", sa_relationship_kwargs={"lazy": "selectin"})
     medical_record: List["MedicalRecord"] = Relationship(back_populates="doctor", sa_relationship_kwargs={"lazy": "selectin"}, passive_deletes=True)
     
 
@@ -187,6 +189,7 @@ class Appointment(SQLModel, table=True):
     cancellation_reason: Optional[str] = None
     status: AppointmentStatus = Field(default=AppointmentStatus.PENDING, sa_column=Column(pgEnum(AppointmentStatus, name="appointment_status", create_type=True), nullable=False))
     doctor_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("doctors.uid", ondelete="CASCADE"), nullable=False, index=True))
+    department_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("departments.uid", ondelete="CASCADE"), nullable=False, index=True))
     rescheduled_from: Optional[uuid.UUID] = Field(
         sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("appointments.uid"), nullable=True)
     )
@@ -200,6 +203,7 @@ class Appointment(SQLModel, table=True):
     patient: "Patient" = Relationship(back_populates="appointment", sa_relationship_kwargs={"lazy": "selectin"})
     hospital: "Hospital" = Relationship(back_populates="appointment", sa_relationship_kwargs={"lazy": "selectin"})
     doctor: "Doctor" = Relationship(back_populates="appointment", sa_relationship_kwargs={"lazy": "selectin"})
+    department: "Department" = Relationship(back_populates="appointments", sa_relationship_kwargs={"lazy": "selectin"})
 
 # Hospital Departments
 class Department(SQLModel, table=True):
@@ -210,13 +214,15 @@ class Department(SQLModel, table=True):
     name: str = Field(sa_column=Column(String, unique=True, index=True, nullable=False))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    
     def __repr__(self):
         return f"Department uid={self.uid}, Hospital uid={self.hospital_uid}, Department Name={self.name}"
 
     # Relationships
     hospital: "Hospital" = Relationship(back_populates="department", sa_relationship_kwargs={"lazy": "selectin"})
     admin: List["Admin"] = Relationship(back_populates="department", sa_relationship_kwargs={"lazy": "selectin"})
-    
+    doctors: List["Doctor"] = Relationship(back_populates="department", sa_relationship_kwargs={"lazy": "selectin"})
+    appointments: List["Appointment"] = Relationship(back_populates="department", sa_relationship_kwargs={"lazy": "selectin"})
 
 # Medical Record Model
 class MedicalRecord(SQLModel, table=True):
