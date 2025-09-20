@@ -49,6 +49,10 @@ class DepartmentNotFound(ExceptionSystemManager):
     pass
 
 
+class MedicalRecordNotFound(ExceptionSystemManager):
+    """Medical record does not exist!"""
+    pass
+
 class InvalidEmailOrPassword(ExceptionSystemManager):
     """Invalid email or password"""
     pass
@@ -293,6 +297,17 @@ def register_all_errors(app: FastAPI):
             initial_detail={
                 "message": "Department not found",
                 "error_code": "department_not_found"
+            }
+        )
+    )
+    # MedicalRecordNotFound
+    app.add_exception_handler(
+        MedicalRecordNotFound,
+        create_exception_handler(
+            status_code=status.HTTP_404_NOT_FOUND,
+            initial_detail={
+                "message": "Medical record not found",
+                "error_code": "record_not_found"
             }
         )
     )

@@ -258,6 +258,9 @@ class DepartmentRead(BaseModel):
 
 #########............Medical Record Model.........############
 class MedicalRecordCreate(BaseModel):
+    patient_uid: Optional[uuid.UUID] = None
+    doctor_uid: Optional[uuid.UUID] = None
+    hospital_uid: Optional[uuid.UUID] = None
     record_type: RecordType = RecordType.PRESCRIPTION
     description: str
     record_date: datetime
