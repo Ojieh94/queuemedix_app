@@ -139,7 +139,7 @@ class Doctor(SQLModel, table=True):
     specialization: str = Field(default=None)
     qualification: str = Field(default=None)
     bio: Optional[str] = Field(default=None)
-    status: DoctorStatus = Field(sa_column=Column(pgEnum(DoctorStatus, name="doctor_status", create_type=True), nullable=False))
+    status: DoctorStatus = Field(default=DoctorStatus.PENDING, sa_column=Column(pgEnum(DoctorStatus, name="doctor_status", create_type=True), nullable=False))
     is_available: bool = Field(default=True, sa_column=Column(pg.BOOLEAN, nullable=False))
     years_of_experience: int = Field(default=None)
     user_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("users.uid", ondelete="CASCADE"), nullable=False, index=True))

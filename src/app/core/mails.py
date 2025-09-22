@@ -14,7 +14,7 @@ def send_verification_email(email: str, token: str):
         <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
             <h2 style="color: #333333;">Verify Your Email Address</h2>
             <p style="font-size: 16px; color: #555555;">
-                Thank you for registering! Please click the button below to verify your account:
+                Thank you for joining the family! Please click the button below to verify your account:
             </p>
             <p style="text-align: center; margin: 30px 0;">
                 <a href="{link}" style="background-color: #4CAF50; color: white; padding: 14px 25px; text-decoration: none; border-radius: 5px; display: inline-block;">
@@ -40,8 +40,10 @@ def send_verification_email(email: str, token: str):
 
     subject = "Please Verify your email"
 
+    email_list = [email]
+
     # Push email to Celery
-    celery.send_email_task.delay(email, subject, body_html)
+    celery.send_email_task.delay(email_list, subject, body_html)
 
 
 # Send password reset email
@@ -88,8 +90,10 @@ def send_password_reset_email(email: str, token: str):
 
     subject = "Password Reset"
 
+    email_list = [email]
+
     # Push email to Celery
-    celery.send_email_task.delay(email, subject, body_html)
+    celery.send_email_task.delay(email_list, subject, body_html)
 
 
 def send_test(email: str,):
@@ -131,5 +135,7 @@ def send_test(email: str,):
 
     subject = "Hola!"
 
+    email_list = [email]
+
     # Push email to Celery
-    celery.send_email_task.delay(email, subject, body_html)
+    celery.send_email_task.delay(email_list, subject, body_html)
