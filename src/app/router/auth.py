@@ -78,8 +78,8 @@ async def login(payload: LoginData, session: AsyncSession=Depends(get_session)):
     if not user:
         raise errors.InvalidEmailOrPassword()
 
-    # if not user.is_active:
-    #     raise errors.AccountNotVerified(user)
+    if not user.is_active:
+        raise errors.AccountNotVerified(user)
 
     if user is not None:
 
