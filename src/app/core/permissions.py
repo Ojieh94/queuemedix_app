@@ -173,6 +173,28 @@ def general_access_list(
         raise errors.NotAuthorized()
 
 
+#assign doctor permission
+def doctor_assign_access(
+    current_user: User, 
+    appointment: Appointment
+) -> Appointment:
+    """
+    Restrict access to a single appointment based on current_user role.
+    Returns the appointment if authorized, otherwise raises error.
+    """
+
+    if current_user.admin.admin_type in {AdminType.HOSPITAL_ADMIN, AdminType.DEPARTMENT_ADMIN}:
+        if appointment.hospital_uid == current_user.hospital.uid:
+            return appointment
+        raise errors.NotAuthorized()
+
+    elif current_user.role == UserRoles.HOSPITAL:
+        if appointment.hospital_uid == current_user.hospital.uid:
+            return appointment
+        raise errors.NotAuthorized()
+
+    raise errors.NotAuthorized()
+
 
 
 #

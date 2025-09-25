@@ -69,6 +69,14 @@ class PatientNotFound(ExceptionSystemManager):
     """Patient does not exist!"""
     pass
 
+class MessageNotFound(ExceptionSystemManager):
+    """Message does not exist!"""
+    pass
+
+class DoctorNotFound(ExceptionSystemManager):
+    """Doctor does not exist!"""
+    pass
+
 class AppointmentNotFound(ExceptionSystemManager):
     """Appointment does not exist!"""
     pass
@@ -254,7 +262,8 @@ def register_all_errors(app: FastAPI):
             }
         )
     )
-    # JobNotFound
+    
+    # PatientNotFound
     app.add_exception_handler(
         PatientNotFound,
         create_exception_handler(
@@ -265,6 +274,19 @@ def register_all_errors(app: FastAPI):
             }
         )
     )
+
+    # DoctorNotFound
+    app.add_exception_handler(
+        DoctorNotFound,
+        create_exception_handler(
+            status_code=status.HTTP_404_NOT_FOUND,
+            initial_detail={
+                "message": "Doctor not found",
+                "error_code": "doctor_not_found"
+            }
+        )
+    )
+
     # AppointmentNotFound
     app.add_exception_handler(
         AppointmentNotFound,
@@ -276,6 +298,19 @@ def register_all_errors(app: FastAPI):
             }
         )
     )
+
+    # MessageNotFound
+    app.add_exception_handler(
+        MessageNotFound,
+        create_exception_handler(
+            status_code=status.HTTP_404_NOT_FOUND,
+            initial_detail={
+                "message": "Message not found",
+                "error_code": "message_not_found"
+            }
+        )
+    )
+
 
      # HospitalNotFound
     app.add_exception_handler(

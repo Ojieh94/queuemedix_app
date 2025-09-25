@@ -25,7 +25,7 @@ class AppointmentStatus(str, Enum):
     IN_PROGRESS = "in_progress"
 
 class DoctorStatus(str, Enum):
-    PENDING = "pending"
+    UNDER_REVIEW = "under review"
     APPROVED = "approved"
     REJECTED = "rejected"
 
@@ -63,6 +63,7 @@ class User(SQLModel, table=True):
     admin: Optional["Admin"] = Relationship(back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
     patient: Optional["Patient"] = Relationship(back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
     doctor: Optional["Doctor"] = Relationship(back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
+    notifications: List["Notification"] = Relationship(back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
 
 # Hospital Model
 class Hospital(SQLModel, table=True):
@@ -139,7 +140,7 @@ class Doctor(SQLModel, table=True):
     specialization: str = Field(default=None)
     qualification: str = Field(default=None)
     bio: Optional[str] = Field(default=None)
-    status: DoctorStatus = Field(default=DoctorStatus.PENDING, sa_column=Column(pgEnum(DoctorStatus, name="doctor_status", create_type=True), nullable=False))
+    status: DoctorStatus = Field(default=DoctorStatus.UNDER_REVIEW, sa_column=Column(pgEnum(DoctorStatus, name="doctor_status", create_type=True), nullable=False))
     is_available: bool = Field(default=True, sa_column=Column(pg.BOOLEAN, nullable=False))
     years_of_experience: int = Field(default=None)
     user_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("users.uid", ondelete="CASCADE"), nullable=False, index=True))
@@ -296,6 +297,7 @@ class Message(SQLModel, table=True):
     content: str
     timestamp:datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     is_read: bool = Field(default=False)
+    is_edited: bool = Field(default=False)
 
     
     def __repr__(self):
@@ -338,3 +340,24 @@ class RefreshToken(SQLModel, table=True):
     expires_at: datetime
     created_at: datetime = Field(default_factory=datetime.now)
     revoked: bool = Field(default=False)
+
+
+class Notification(SQLModel, table=True):
+    __tablename__ = "notifications"
+
+    uid: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        sa_column=Column(pg.UUID(as_uuid=True), primary_key=True, index=True)
+    )
+    user_uid: uuid.UUID = Field(
+        sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("users.uid", ondelete="CASCADE")),
+        index=True,
+        nullable=False
+    )
+    title: str
+    body: str
+    data: dict = Field(default={})
+    is_read: bool = Field(default=False)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    user: "User" = Relationship(back_populates="notifications")
