@@ -3,7 +3,8 @@ from sqlmodel import select
 from typing import List, Optional
 from src.app.models import Appointment, AppointmentStatus, Doctor
 from src.app.schemas import AppointmentCreate, AppointmentStatusUpdate, AppointmentUpdate
-from src.app.router.queue_engine import notify_queue_update
+from src.app.websocket.appointment_ws import notify_queue_update
+from src.app.services.notification import send_notification
 
 """
 create an appointment
@@ -19,15 +20,30 @@ switch apointment status
 
 async def create_appointment(patient_uid: str, payload: AppointmentCreate, session: AsyncSession):
     
-    new_appointment = Appointment(**payload.model_dump(), patient_uid=patient_uid)
+    new_appt = Appointment(**payload.model_dump(), patient_uid=patient_uid)
 
-    session.add(new_appointment)
+    session.add(new_appt)
     await session.commit()
-    await session.refresh(new_appointment)
+    await session.refresh(new_appt)
+    
+    # Broadcast updated queue (real-time to hospital staff)
+    await notify_queue_update(hospital_uid=new_appt.hospital_uid, session=session)
 
-    await notify_queue_update(hospital_uid=new_appointment.hospital_uid, session=session)
+    # Notify doctor
+    await send_notification(session, new_appt.doctor_uid, {
+        "title": "New Appointment",
+        "body": f"You have a new appointment with {new_appt.patient.full_name}",
+        "data": {"appointment_uid": str(new_appt.uid)}
+    })
 
-    return new_appointment 
+    # Notify patient
+    await send_notification(session, new_appt.patient_uid, {
+        "title": "Appointment Scheduled",
+        "body": "Your appointment has been booked.",
+        "data": {"appointment_uid": str(new_appt.uid)}
+    })
+
+    return new_appt 
 
 
 # async def update_appointment(appointment_uid: str, payload: AppointmentUpdate, session: AsyncSession):

@@ -287,7 +287,9 @@ class MedicalRecordRead(BaseModel):
 
 
 ########..........Message Model.........#########
+
 class MessageCreate(BaseModel):
+    receiver_uid: uuid.UUID
     content: str
 
 class MessageUpdate(BaseModel):
@@ -343,3 +345,8 @@ class UserReadMe(UserBase):
     hospital: Optional[HospitalRead]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DataPlusMessage(BaseModel):
+    message: str
+    data: MessageRead

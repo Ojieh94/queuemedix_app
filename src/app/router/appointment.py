@@ -8,7 +8,7 @@ from src.app.models import Admin, Doctor, User, Appointment, AppointmentStatus, 
 from src.app.services import appointment as apt_service, patients as pat_service, hospital as hp_service, department as dpt_service, medical_records as med_service
 from src.app.database.main import get_session
 from src.app.core import errors, permissions
-from src.app.router.queue_engine import notify_queue_update
+from src.app.websocket.appointment_ws import notify_queue_update
 
 """
 create an appointment
@@ -83,35 +83,6 @@ async def add_appointment(patient_uid: str, payload: AppointmentCreate, session:
     return {"message": "Appointment created successfully!"}
 
 
-"""This is an Admin route....... we will come back to this. Because the doctor being assigned must be under the appointment department"""
-# @apt_router.patch('/appointments/{appointment_uid}', status_code=status.HTTP_202_ACCEPTED)
-# async def assign_doctor(appointment_uid: str, payload: DoctorAssign, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
-    
-#     appointment = await apt_service.get_appointment_by_id(appointment_uid, session)
-
-#     if not appointment:
-#         raise errors.AppointmentNotFound()
-    
-#     #access control
-#     permissions.check_appointment_access(current_user, appointment)
-
-    
-#     # Check if the doctor is available...............(awaiting doctor's service)
-#     doctor = await apt_service.get_single_doctor(payload.doctor_uid, session)
-
-#     if not doctor:
-#         raise errors.DoctorNotFound()
-    
-#     if not doctor.is_available:
-#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Doctor is currently not available")
-    
-#     # Assign doctor to the appointment
-#     appointment.doctor_uid = payload.doctor_uid
-#     await session.commit()
-#     await session.refresh(appointment)
-
-    # return {"message": "Doctor assigned successfully!"}
-
 
 @apt_router.get('/appointments', status_code=status.HTTP_200_OK, response_model=List[AppointmentRead])
 async def get_appointments(status: Optional[AppointmentStatus], skip: int = 0, limit: int = 10, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
@@ -123,6 +94,7 @@ async def get_appointments(status: Optional[AppointmentStatus], skip: int = 0, l
         raise errors.NotAuthorized()
 
     return appointments
+
 
 @apt_router.get('/appointments/{patient_uid}/appointments', status_code=status.HTTP_200_OK, response_model=List[AppointmentRead])
 async def get_patient_appointments(patient_uid: str, skip: int = 0, limit: int = 10, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
