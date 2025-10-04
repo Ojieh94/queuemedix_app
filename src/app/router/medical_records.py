@@ -3,13 +3,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from datetime import datetime
 
-from database import get_db
 from src.app.core import errors
 from src.app.core.dependencies import RoleChecker, get_current_user
 from src.app.database.main import get_session
 from src.app.schemas import MedicalRecordUpdate
 from src.app.services import medical_records as med_service
-from models import Admin, AdminType, Doctor, MedicalRecord
+from src.app.models import Admin, AdminType, Doctor, MedicalRecord
 
 med_router = APIRouter(tags=["Medical Records"])
 admin_only = Depends(RoleChecker(["admin"]))

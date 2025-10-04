@@ -1,9 +1,10 @@
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio.session import AsyncSession
-from src.app.schemas import RegisterUser
-from src.app.models import User, Patient, Hospital, Doctor, Admin
+from sqlmodel import select
+from src.app.schemas import RegisterUser, RegisterAdminUser
+from src.app.models import User, Patient, Hospital, Doctor, Admin, AdminType, SignupLink
 from src.app.core.utils import hash_password
-from datetime import date
+from datetime import date, datetime, timedelta
 
 async def register_user(payload: RegisterUser, session: AsyncSession):
     
@@ -58,11 +59,6 @@ async def register_user(payload: RegisterUser, session: AsyncSession):
             registration_number=" ",
             hospital_ceo=" "
             )
-    elif new_user.role == "admin":
-        profile = Admin(
-            user_uid=new_user.uid,
-            full_name=""
-            )
     else:
         raise HTTPException(status_code=400, detail="Invalid role.")
 
@@ -71,3 +67,82 @@ async def register_user(payload: RegisterUser, session: AsyncSession):
     await session.refresh(new_user)
 
     return new_user
+
+
+async def register_admin(payload: RegisterAdminUser, token: str, session: AsyncSession):
+
+    # Validate the signup token
+    signup_link = (await session.execute(select(SignupLink).where(SignupLink.token == token))).scalar_one_or_none()
+    if not signup_link:
+        raise HTTPException(status_code=400, detail="Invalid signup token")
+    
+    if signup_link.is_used:
+        raise HTTPException(status_code=400, detail="Signup token already used")
+
+    # Check if token is expired (optional)
+    if signup_link.created_at < datetime.now() - timedelta(hours=24):
+        raise HTTPException(status_code=400, detail="Signup token has expired")
+
+    # Check if the email associated with the token matches the payload
+    if signup_link.email != payload.email:
+        raise HTTPException(status_code=400, detail="Token email does not match")
+
+    # Mark the token as used
+    signup_link.is_used = True
+    
+    model_dict = payload.model_dump()
+    
+    # Create base user
+    new_user = User(**model_dict)
+
+    new_user.hashed_password = hash_password(payload.password)
+    new_user.is_active = True
+
+    session.add(new_user)
+    await session.flush()  # get new_user.id without committing yet
+
+    # Create profile based on role
+    profile = Admin(
+        user_uid=new_user.uid,
+        full_name="",
+        admin_type=signup_link.admin_type,
+        hospital_uid=signup_link.hospital_uid,
+        notes=signup_link.notes,
+        department_uid=signup_link.department_uid
+    )
+
+    session.add(profile)
+    await session.commit()
+    await session.refresh(new_user)
+
+    return new_user
+
+
+
+async def register_super_admin(payload: RegisterAdminUser, session: AsyncSession):
+    
+    model_dict = payload.model_dump()
+    
+    # Create base user
+    new_user = User(**model_dict)
+
+    new_user.hashed_password = hash_password(payload.password)
+    
+    session.add(new_user)
+    await session.flush()  # get new_user.id without committing yet
+
+    # Create profile based on role
+    profile = Admin(
+        user_uid=new_user.uid,
+        full_name="",
+        admin_type=AdminType.SUPER_ADMIN
+    )
+
+    session.add(profile)
+    await session.commit()
+    await session.refresh(new_user)
+
+    return new_user
+
+
+   

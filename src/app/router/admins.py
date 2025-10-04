@@ -3,21 +3,19 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from src.app.models import Admin, AdminType, User
 from src.app.core.dependencies import AccessTokenBearer, RoleChecker, get_current_user
-from src.app.schemas import AdminProfileUpdate, DoctorAssign
+from src.app.schemas import AdminProfileUpdate, DoctorAssign, VerifyHospital
 from src.app.services.notification import send_notification
-from src.app.services import admins as admin_service, appointment as appt_service
+from src.app.services import admins as admin_service, appointment as appt_service, hospital as hp_service
 from src.app.database.main import get_session
 from src.app.core import permissions
 from src.app.core import errors
 
-admin_router = APIRouter(prefix="/admins",
-                        tags=['Admins']
-                        )
+admin_router = APIRouter(tags=['Admins'])
 access_token_bearer = AccessTokenBearer()
 role_checker = Depends(RoleChecker(["admin"]))
 
 
-@admin_router.get('/', response_model=List[User], dependencies=[role_checker])
+@admin_router.get('/admins', response_model=List[User], dependencies=[role_checker])
 async def get_admins(skip: int = 0, limit: int = 100, session: AsyncSession = Depends(get_session),
                         current_user: Admin = Depends(get_current_user)):
     """Protected endpoint for super admins to get all admins"""
@@ -31,7 +29,7 @@ async def get_admins(skip: int = 0, limit: int = 100, session: AsyncSession = De
     return users
 
 
-@admin_router.get('/{admin_id}', dependencies=[role_checker])
+@admin_router.get('/admins/{admin_id}', dependencies=[role_checker])
 async def get_admin(admin_id: str, session: AsyncSession = Depends(get_session), current_user: Admin = Depends(get_current_user)):
     """Protected endpoint for super admins to get an admin by uuid"""
 
@@ -47,7 +45,7 @@ async def get_admin(admin_id: str, session: AsyncSession = Depends(get_session),
         raise errors.UserNotFound()
     
 
-@admin_router.patch("/{admin_id}", dependencies=[role_checker])
+@admin_router.patch("/admins/{admin_id}", dependencies=[role_checker])
 async def update_admin_profile(admin_id: str, update_data: AdminProfileUpdate, session: AsyncSession = Depends(get_session), current_user: Admin = Depends(get_current_user)):
     """Protected endpoint for updating admin profile"""
 
@@ -64,7 +62,7 @@ async def update_admin_profile(admin_id: str, update_data: AdminProfileUpdate, s
 
 
 
-@admin_router.delete('/{admin_id}', dependencies=[role_checker])
+@admin_router.delete('/admins/{admin_id}', dependencies=[role_checker])
 async def delete_admin(admin_id: str, session: AsyncSession = Depends(get_session), current_user: Admin = Depends(get_current_user)):
     """Protected endpoint for super admins to delete admin user"""
 
@@ -82,7 +80,7 @@ async def delete_admin(admin_id: str, session: AsyncSession = Depends(get_sessio
     
 
 
-@admin_router.patch('/appointments/{appointment_uid}', status_code=status.HTTP_202_ACCEPTED)
+@admin_router.patch('/appointments/{appointment_uid}/admin', status_code=status.HTTP_202_ACCEPTED)
 async def assign_doctor(appointment_uid: str, payload: DoctorAssign, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
     
     appointment = await appt_service.get_appointment_by_id(appointment_uid, session)
@@ -123,3 +121,22 @@ async def assign_doctor(appointment_uid: str, payload: DoctorAssign, session: As
     })
 
     return {"message": "Doctor assigned successfully!"}
+
+
+@admin_router.patch('/hospitals/{hospital_uid}/admin', status_code=status.HTTP_200_OK)
+async def approve_hospital(hospital_uid: str, payload: VerifyHospital, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+
+    hospital = await hp_service.get_single_hospital(hospital_uid, session)
+    
+    if not hospital:
+        raise errors.HospitalNotFound()
+    
+    #access control
+    if current_user.admin.admin_type != AdminType.SUPER_ADMIN:
+        raise errors.NotAuthorized()
+    
+    #approve/reject hospital application
+    await hp_service.approve_hospital(hospital_uid, payload, session)
+
+    return {"message": "Your request has been recorded successfully."}
+    

@@ -1,8 +1,9 @@
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlmodel import select, or_
-from src.app.models import Hospital, Doctor, Appointment, AppointmentStatus
+from src.app.models import Hospital, Doctor, Appointment, AppointmentStatus, HospitalStatus
 from typing import Optional, List
-from src.app.schemas import HospitalProfileUpdate
+from src.app.schemas import HospitalProfileUpdate, VerifyHospital, AssignAdminDuty
+from src.app.services import admins as ad_service
 
 
 #updating hospital profile
@@ -80,3 +81,35 @@ async def delete_hospital(hospital_uid: str, session: AsyncSession):
     await session.delete(hospital_to_delete)
 
     await session.commit()
+
+
+async def approve_hospital(hospital_uid: str, payload: VerifyHospital, session: AsyncSession):
+        
+        hospital = await get_single_hospital(hospital_uid, session)
+
+        if not hospital:
+            return None
+        
+        hospital.status = payload.status
+
+        if payload.status == HospitalStatus.APPROVED:
+            hospital.is_verified = True
+
+        await session.commit()
+        
+        return hospital
+
+
+async def assign_duties_to_department_admin(admin_uid: str, payload: AssignAdminDuty, session: AsyncSession):
+    
+    admin = await ad_service.get_admin(admin_uid, session)
+    
+    if not admin:
+        return None
+    
+    admin.notes = payload.notes
+
+    await session.commit()
+    
+    return admin
+    

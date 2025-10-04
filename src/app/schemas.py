@@ -1,8 +1,8 @@
 from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 import uuid
 from datetime import datetime, date
-from typing import Optional, Union, List
-from src.app.models import UserRoles, HospitalType, AdminType, AppointmentStatus, RecordType,DoctorStatus
+from typing import Optional, List
+from src.app.models import UserRoles, HospitalType, AdminType, AppointmentStatus, RecordType, DoctorStatus, HospitalStatus
 
 
 class EmailStrLower(EmailStr):
@@ -23,6 +23,27 @@ class UserBase(BaseModel):
 
 ###########.........User Registration.........#########
 class RegisterUser(UserBase):
+    password: str
+
+    @field_validator('password')
+    def validate_password(cls, value):
+        if len(value) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        if not any(char.isdigit() for char in value):
+            raise ValueError('Password must contain at least one digit')
+        if not any(char.islower() for char in value):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not any(char.isupper() for char in value):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not any(char in "!@#$%^&*()_+[]{}|;:,.<>?/~" for char in value):
+            raise ValueError('Password must contain at least one special character')
+        return value
+
+
+class RegisterAdminUser(BaseModel):
+    username: str
+    email: EmailStrLower
+    role: UserRoles.ADMIN
     password: str
 
     @field_validator('password')
@@ -76,10 +97,14 @@ class HospitalProfileUpdate(BaseModel):
     ownership_type: Optional[HospitalType] = None
     hospital_ceo: Optional[str] = None
 
+class VerifyHospital(BaseModel):
+    status: HospitalStatus
+
 class HospitalRead(HospitalBase):
     uid: uuid.UUID
     user_uid: uuid.UUID
     is_verified: bool = False
+    status: HospitalStatus = HospitalStatus.UNDER_REVIEW
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -163,7 +188,7 @@ class DoctorAssign(BaseModel):
 
 class DoctorRead(DoctorBase):
     uid: uuid.UUID 
-    status: DoctorStatus = DoctorStatus.PENDING
+    status: DoctorStatus = DoctorStatus.UNDER_REVIEW
     user_uid: uuid.UUID
     department_uid: uuid.UUID
     created_at: datetime
@@ -179,7 +204,6 @@ class AdminBase(BaseModel):
     hospital_uid: Optional[uuid.UUID] = None
     admin_type: AdminType = AdminType.HOSPITAL_ADMIN
     department_uid: Optional[uuid.UUID] = None
-    notes: Optional[str] = None
 
 class AdminProfileCreate(AdminBase):
     pass
@@ -189,11 +213,15 @@ class AdminProfileUpdate(BaseModel):
     notes: Optional[str] = None
     department_uid: Optional[uuid.UUID] = None
 
+class AssignAdminDuty(BaseModel):
+    notes: str
+
 class AdminRead(AdminBase):
     uid: uuid.UUID
     user_uid: uuid.UUID
     created_at: datetime
     updated_at: datetime
+    notes: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -222,12 +250,16 @@ class AppointmentCancel(BaseModel):
 class AppointmentStatusUpdate(BaseModel):
     status: AppointmentStatus
 
+class RescheduleAppointment(BaseModel):
+    new_time: datetime
+    reason: str
+
 class AppointmentRead(AppointmentBase):
     uid: uuid.UUID
     patient_uid: uuid.UUID
     doctor_uid: uuid.UUID
     status: AppointmentStatus = AppointmentStatus.PENDING
-    rescheduled_from: Optional[uuid.UUID] = None
+    rescheduled_from: Optional[datetime] = None
     check_in_time: Optional[datetime] = None
     completed_time: Optional[datetime] = None
     created_at: datetime

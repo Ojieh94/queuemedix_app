@@ -1,10 +1,11 @@
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from typing import List, Optional
-from src.app.models import Appointment, AppointmentStatus, Doctor
-from src.app.schemas import AppointmentCreate, AppointmentStatusUpdate, AppointmentUpdate
+from src.app.models import Appointment, AppointmentStatus, Doctor, User, RescheduleHistory
+from src.app.schemas import AppointmentCreate, AppointmentStatusUpdate, RescheduleAppointment
 from src.app.websocket.appointment_ws import notify_queue_update
 from src.app.services.notification import send_notification
+from src.app.core import mails
 
 """
 create an appointment
@@ -39,7 +40,7 @@ async def create_appointment(patient_uid: str, payload: AppointmentCreate, sessi
     # Notify patient
     await send_notification(session, new_appt.patient_uid, {
         "title": "Appointment Scheduled",
-        "body": "Your appointment has been booked.",
+        "body": f"Your appointment has been booked with {new_appt.hospital.hospital_name}",
         "data": {"appointment_uid": str(new_appt.uid)}
     })
 
@@ -188,3 +189,42 @@ async def delete_appointment(appointment_uid: str, session: AsyncSession):
     await session.commit()
 
     await notify_queue_update(session, appointment.hospital_uid)
+
+
+async def reschedule_appointment(
+    appointment_uid: str,
+    payload: RescheduleAppointment,
+    session: AsyncSession,
+    current_user: User,  # returns dict with id, role, etc.
+):
+    # Fetch appointment
+    appointment = await get_appointment_by_id(appointment_uid, session)
+    if not appointment:
+        return None
+
+    old_time = appointment.scheduled_time
+    appointment.scheduled_time = payload.new_time
+    appointment.status = AppointmentStatus.RESCHEDULED
+    appointment.rescheduled_from = old_time  #for current state tracking
+
+    # Log the history
+    history = RescheduleHistory(
+        appointment_uid=appointment.uid,
+        old_time=old_time,
+        new_time=payload.new_time,
+        reason=payload.reason,
+        rescheduled_by_id=current_user.uid,
+    )
+    session.add(history)
+
+    await session.commit()
+    await session.refresh(appointment)
+
+    # Notify patient
+    await send_notification(session, appointment.patient_uid, {
+        "title": "Appointment Rescheduled",
+        "body": f"Your appointment with {appointment.hospital.hospital_name}, has been rescheduled to {payload.new_time}",
+        "data": {"appointment_uid": str(appointment.uid)}
+    })
+    
+    return appointment
