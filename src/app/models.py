@@ -23,9 +23,15 @@ class AppointmentStatus(str, Enum):
     COMPLETED = "completed"
     CANCELED = "canceled"
     IN_PROGRESS = "in_progress"
+    RESCHEDULED = "rescheduled"
 
 class DoctorStatus(str, Enum):
-    UNDER_REVIEW = "under review"
+    UNDER_REVIEW = "under_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+class HospitalStatus(str, Enum):
+    UNDER_REVIEW = "under_review"
     APPROVED = "approved"
     REJECTED = "rejected"
 
@@ -79,6 +85,7 @@ class Hospital(SQLModel, table=True):
     phone_number: str = Field(default=None)
     registration_number: str = Field(default=None, sa_column=Column(String, unique=True, nullable=False))
     ownership_type: HospitalType = Field(default=HospitalType.PRIVATE, sa_column=Column(pgEnum(HospitalType, name="hospital_type", create_type=True), nullable=False))
+    status: HospitalStatus = Field(default=HospitalStatus.UNDER_REVIEW, sa_column=Column(pgEnum(HospitalStatus, name="hospital_status", create_type=True), nullable=False))
     hospital_ceo: str = Field(default=None)
     is_verified: bool = Field(default=False, sa_column=Column(pg.BOOLEAN, nullable=False))
 
@@ -164,7 +171,7 @@ class Admin(SQLModel, table=True):
     full_name: str = Field(default=None)
     hospital_uid: Optional[uuid.UUID] = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("hospitals.uid", ondelete="CASCADE"), nullable=True, index=True))
     user_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("users.uid", ondelete="CASCADE"), nullable=False, index=True))
-    admin_type: AdminType = Field(default=AdminType.HOSPITAL_ADMIN, sa_column=Column(pg.ENUM(AdminType, name="admin_type", create_type=True), nullable=False))
+    admin_type: AdminType = Field(sa_column=Column(pg.ENUM(AdminType, name="admin_type", create_type=True), nullable=False))
     department_uid: Optional[uuid.UUID] = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("departments.uid", ondelete="CASCADE"), nullable=True, index=True))
     notes: Optional[str] = None
 
@@ -191,9 +198,7 @@ class Appointment(SQLModel, table=True):
     status: AppointmentStatus = Field(default=AppointmentStatus.PENDING, sa_column=Column(pgEnum(AppointmentStatus, name="appointment_status", create_type=True), nullable=False))
     doctor_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("doctors.uid", ondelete="CASCADE"), nullable=False, index=True))
     department_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("departments.uid", ondelete="CASCADE"), nullable=False, index=True))
-    rescheduled_from: Optional[uuid.UUID] = Field(
-        sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("appointments.uid"), nullable=True)
-    )
+    rescheduled_from: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -205,6 +210,21 @@ class Appointment(SQLModel, table=True):
     hospital: "Hospital" = Relationship(back_populates="appointment", sa_relationship_kwargs={"lazy": "selectin"})
     doctor: "Doctor" = Relationship(back_populates="appointment", sa_relationship_kwargs={"lazy": "selectin"})
     department: "Department" = Relationship(back_populates="appointments", sa_relationship_kwargs={"lazy": "selectin"})
+    reschedule_history: List["RescheduleHistory"] = Relationship(back_populates="appointment", sa_relationship_kwargs={"lazy": "selectin"}, passive_deletes=True)
+
+
+#Appointment Reschedule History
+class RescheduleHistory(SQLModel, table=True):
+    uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(pg.UUID(as_uuid=True), primary_key=True, index=True))
+    appointment_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("appointments.uid", ondelete="CASCADE"), nullable=False, index=True, unique=True))
+    old_time: datetime
+    new_time: datetime
+    reason: Optional[str] = Field(default=None, max_length=255)
+    rescheduled_by: Optional[uuid.UUID] = Field(default=None)  # Could be doctor/hospital admin ID
+    rescheduled_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    # Optional relationships
+    appointment: Optional["Appointment"] = Relationship(back_populates="reschedule_history", sa_relationship_kwargs={"lazy": "selectin"})
 
 # Hospital Departments
 class Department(SQLModel, table=True):
@@ -273,6 +293,10 @@ class SignupLink(SQLModel, table=True):
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(pg.UUID(as_uuid=True), primary_key=True, index=True))
     token: str = Field(sa_column=Column(String, unique=True, index=True))
     email: str = Field(sa_column=Column(String, nullable=False))
+    hospital_uid: str = Field(sa_column=Column(String, nullable=False))
+    department_uid: str = Field(sa_column=Column(String, nullable=True))
+    admin_type: AdminType = Field(sa_column=Column(pg.ENUM(AdminType, name="admin_type", create_type=True), nullable=False))
+    notes: Optional[str] = None
     is_used: bool = Field(default=False)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     def __repr__(self):
@@ -345,19 +369,12 @@ class RefreshToken(SQLModel, table=True):
 class Notification(SQLModel, table=True):
     __tablename__ = "notifications"
 
-    uid: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(pg.UUID(as_uuid=True), primary_key=True, index=True)
-    )
-    user_uid: uuid.UUID = Field(
-        sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("users.uid", ondelete="CASCADE")),
-        index=True,
-        nullable=False
-    )
+    uid: Optional[uuid.UUID ]= Field(default_factory=uuid.uuid4, sa_column=Column(pg.UUID(as_uuid=True), primary_key=True, index=True))
+    user_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("users.uid", ondelete="CASCADE"), nullable=False, index=True))
     title: str
     body: str
-    data: dict = Field(default={})
+    data: dict = Field(default_factory=dict, sa_column=Column(pg.JSONB, nullable=False))
     is_read: bool = Field(default=False)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    user: "User" = Relationship(back_populates="notifications")
+    user: "User" = Relationship(back_populates="notifications", sa_relationship_kwargs={"lazy": "selectin"})

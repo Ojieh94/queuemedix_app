@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from src.app.database.main import init_db
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from src.app.database.main import init_db, async_sessionmaker
+from src.app.services.sign_up_link import delete_expired_tokens
 from src.app.core.errors import register_all_errors
 from src.app.middlewares import register_all_middlewares
 from src.app.router import (
@@ -43,6 +45,24 @@ app = FastAPI(
 #Exception block
 register_all_errors(app)
 register_all_middlewares(app)
+
+
+# Async cleanup job
+async def cleanup_job():
+    async with async_sessionmaker() as session:
+        try:
+            await delete_expired_tokens(session)
+        except Exception as e:
+            print(f"Error deleting tokens from database: {e}")
+
+
+# Start the async scheduler
+def start_scheduler():
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(cleanup_job, trigger="interval", hours=24)
+    scheduler.start()
+    return scheduler
+
 
 #app routers
 app.include_router(auth.auth_router, prefix=f"/api/{version}")

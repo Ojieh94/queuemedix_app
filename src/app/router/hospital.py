@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from src.app.core.dependencies import get_current_user
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from src.app import schemas, models
-from src.app.services import hospital as hp_service
+from src.app.services import hospital as hp_service, admins as ad_service, notification
 from src.app.core import errors
 from src.app.database.main import get_session
 
@@ -111,3 +111,39 @@ async def delete_hospital(hospital_uid: str, session: AsyncSession = Depends(get
         raise errors.NotAuthorized()
     
     await hp_service.delete_hospital(hospital_uid, session)
+
+
+
+@hp_router.patch('/hospitals/{admin_uid}/duty', status_code=status.HTTP_200_OK)
+async def assign_duty(admin_uid: str, payload: schemas.AssignAdminDuty, session: AsyncSession = Depends(get_session), current_user: models.User = Depends(get_current_user)):
+
+    """
+    Helps hospitals assign duties to department admins.
+    Example: notes = "Handle prescriptions for ulceric patients"
+    """
+
+    admin = await ad_service.get_admin(admin_uid, session)
+
+    if not admin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Admin not found"
+        )
+    
+    hospital = await hp_service.get_single_hospital(admin.hospital_uid, session)
+    
+    #access control
+    if current_user.uid != hospital.user_uid:
+        raise errors.NotAuthorized()
+    
+    #assign duty
+    await hp_service.assign_duties_to_department_admin(admin_uid, payload, session)
+
+    #Notify the admin
+    await notification.send_notification(session, admin_uid, {
+        "title": "New Notification",
+        "body": f"Hello {admin.user.username}, Your new duty is '{payload.notes}'.",
+        "data": {"hospital_uid": str(admin.hospital_uid)}
+    })
+
+    return {"message": "Duty has been assigned successfully"}

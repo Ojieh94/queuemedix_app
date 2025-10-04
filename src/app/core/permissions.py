@@ -102,6 +102,33 @@ def check_appointment_access(
     raise errors.NotAuthorized()
 
 
+#permission access for appointment reschedule endpoint
+def appointment_reschedule_access(
+    current_user: User, 
+    appointment: Appointment
+) -> Appointment:
+    """
+    Restrict access to a single appointment based on current_user role.
+    Returns the appointment if authorized, otherwise raises error.
+    """
+
+    if current_user.admin.admin_type in {AdminType.HOSPITAL_ADMIN, AdminType.DEPARTMENT_ADMIN}:
+        if appointment.hospital_uid == current_user.hospital.uid:
+            return appointment
+        raise errors.NotAuthorized()
+
+    elif current_user.role == UserRoles.HOSPITAL:
+        if appointment.hospital_uid == current_user.hospital.uid:
+            return appointment
+        raise errors.NotAuthorized()
+
+    elif current_user.role == UserRoles.DOCTOR:
+        if appointment.doctor_uid == current_user.doctor.uid:
+            return appointment
+        raise errors.NotAuthorized()
+
+    raise errors.NotAuthorized()
+
 
 #general permission with patient
 def general_access(

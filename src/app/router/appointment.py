@@ -3,11 +3,11 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, status, HTTPException
 from src.app.core.dependencies import RoleChecker, get_current_user
 from sqlalchemy.ext.asyncio.session import AsyncSession
-from src.app.schemas import AppointmentCreate, AppointmentRead, DoctorAssign, AppointmentStatusUpdate, MedicalRecordCreate
+from src.app.schemas import AppointmentCreate, AppointmentRead, DoctorAssign, AppointmentStatusUpdate, MedicalRecordCreate, RescheduleAppointment
 from src.app.models import Admin, Doctor, User, Appointment, AppointmentStatus, UserRoles, AdminType
 from src.app.services import appointment as apt_service, patients as pat_service, hospital as hp_service, department as dpt_service, medical_records as med_service
 from src.app.database.main import get_session
-from src.app.core import errors, permissions
+from src.app.core import errors, permissions,mails
 from src.app.websocket.appointment_ws import notify_queue_update
 
 """
@@ -39,7 +39,7 @@ async def add_appointment(patient_uid: str, payload: AppointmentCreate, session:
         raise errors.PatientNotFound()
     
     # Ensure scheduled_time is in the future
-    if payload.scheduled_time < datetime.now():
+    if payload.scheduled_time <= datetime.now():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Appointment date cannot be in the past.")
 
@@ -70,17 +70,23 @@ async def add_appointment(patient_uid: str, payload: AppointmentCreate, session:
     # Check if the department exists
     department = await dpt_service.get_department_by_id(payload.department_uid, session)
 
-    if not hospital:
+    if not department:
         raise errors.DepartmentNotFound()
     
-    #assigning access
+    #access control
     if current_user.role != UserRoles.PATIENT:
         raise errors.NotAuthorized()
 
     # Create the appointment
-    await apt_service.create_appointment(patient_uid, payload, session)
+    appointment = await apt_service.create_appointment(patient_uid, payload, session)
 
-    return {"message": "Appointment created successfully!"}
+    #send email to patient
+    mails.appointment_success(patient.user.email, patient.user, payload.scheduled_time)
+
+    #send email to hospital
+    mails.appointment_notification_hospital(hospital.user.email, patient.user, payload.scheduled_time)
+
+    return appointment
 
 
 
@@ -181,6 +187,9 @@ async def cancel_appointment(appointment_uid: str, session: AsyncSession = Depen
 
     await notify_queue_update(session, appointment.hospital_uid)
 
+    #send email to patient
+    mails.appointment_canceled(appointment.patient.user.email, appointment.patient.user, appointment.scheduled_time)
+
     return {"message": "Appointment has been cancelled successfully!"}
 
 
@@ -245,3 +254,44 @@ async def create_medical_record(appointment_id: str, payload: MedicalRecordCreat
     new_record = await med_service.create_medical_record(payload=payload, session=session)
 
     return new_record
+
+
+#reschedule appointment
+@apt_router.put("/appointments/{appointment_uid}/reschedule")
+async def reschedule_appointment(
+    appointment_uid: str,
+    payload: RescheduleAppointment,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+
+    appointment = await apt_service.get_appointment_by_id(appointment_uid, session)
+
+    if not appointment:
+        raise errors.AppointmentNotFound()
+
+    # Ensure scheduled_time is in the future
+    if payload.new_time <= datetime.now():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Appointment date cannot be in the past.")
+
+    # Check if time slot is available
+    time_is_taken = await apt_service.appointment_by_schedule_time(
+        appointment.hospital_uid, payload.new_time, session)
+    
+    if time_is_taken:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Time slot is already taken")
+    
+    #access control
+    permissions.appointment_reschedule_access(current_user, appointment)
+
+    await apt_service.reschedule_appointment(appointment_uid, payload, session, current_user)
+
+    #inform the patient through email
+    mails.appointment_rescheduled(appointment.patient.user.email, appointment.patient.full_name, appointment.hospital.hospital_name, appointment.scheduled_time, payload.new_time)
+
+    return {
+        "message": "Appointment rescheduled successfully",
+        "appointment": appointment
+    }

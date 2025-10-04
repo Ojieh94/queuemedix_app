@@ -112,7 +112,7 @@ async def get_pending_doctors(hospital_id: str, skip: int = 0, limit: int = 100,
     return doctors
 
 
-@doctor_router.patch("/{doctor_id}/status", status_code=status.HTTP_202_ACCEPTED, dependencies=[admin_only])
+@doctor_router.patch("/{doctor_id}/status", status_code=status.HTTP_202_ACCEPTED, dependencies=[admin_only], tags=['Admins'])
 async def update_doctor_status(doctor_id: str, status: DoctorStatus, session: AsyncSession = Depends(get_session), current_user: Admin = Depends(get_current_user)):
 
     """Protected endpoint for hospital admins to approve doctors after signup"""

@@ -1,14 +1,14 @@
 import uuid
-from fastapi import APIRouter, HTTPException, status, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, status, Depends, BackgroundTasks, Request
 from fastapi.responses import JSONResponse
 from fastapi.security.http import HTTPAuthorizationCredentials
 from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from datetime import timedelta, datetime, timezone
-from src.app.schemas import RegisterUser, LoginData, EmailModel
+from src.app.schemas import RegisterUser, LoginData, EmailModel, RegisterAdminUser
 from src.app.database.main import get_session
-from src.app.models import User
-from src.app.services import user as user_service, auth as auth_service
+from src.app.models import User, AdminType
+from src.app.services import user as user_service, auth as auth_service, sign_up_link as link_service
 from src.app.core.dependencies import get_current_user, refresh_token
 from src.app.core import celery, errors, settings, redis, mails
 from src.app import schemas
@@ -42,7 +42,8 @@ auth_scheme = HTTPBearer()
 async def register_user(payload: RegisterUser, session: AsyncSession = Depends(get_session)):
 
     """
-    Roles: "admin", "doctor", "hospital", "patient"
+    Only these roles can use this endpoint:
+    Roles: "doctor", "hospital", "patient"
     
     """
     email = payload.email
@@ -63,6 +64,82 @@ async def register_user(payload: RegisterUser, session: AsyncSession = Depends(g
 
     return {
         "message": f"{payload.role.capitalize()}'s account created successfully! Please check your email to verify your account.",
+        "user": new_user 
+    }
+
+
+@auth_router.post("/auth/signup_link", tags=["Unique Signup Link Generator"])
+async def generate_link(email: str, notes: str, admin_type: AdminType, request: Request, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
+
+    token = await link_service.create_signup_link(email, notes, admin_type, current_user, session)
+
+    # Construct the full URL based on request
+    base_url = str(request.base_url).rstrip("/")
+    signup_path = "/auth/signup/hospital_admin"
+    signup_link = f"{base_url}{signup_path}?token={token}"
+
+    #forward the link to the admin's email
+    mails.hospital_admin_invite(email, current_user.hospital.hospital_name, signup_link)
+
+    return JSONResponse(
+        content={
+            "message": "Your link has been created and forwarded to the admin's email successfully.",
+            "data": signup_link
+        }
+    )
+
+
+
+### ADMIN SESSION
+@auth_router.post("/auth/signup/hospital_admin", status_code=status.HTTP_201_CREATED)
+async def admin_signup(payload: RegisterAdminUser, token: str, session: AsyncSession = Depends(get_session)):
+
+    """
+    This endpoint is for admins to signup with generated link by hospital
+    Roles: "hospital_admin", "department_admin"
+    
+    """
+    email = payload.email
+
+    existing_user = await user_service.get_user_email(payload.email, session)
+
+    if existing_user:
+        raise errors.UserAlreadyExists()
+    
+    new_user = await auth_service.register_admin(payload, token, session)
+
+    return {
+        "message": f"Hello! {payload.username} your account has been created and activated successfully! Please proceed to login.",
+        "user": new_user 
+    }
+
+
+@auth_router.post("/auth/signup/queue_medix_admin", status_code=status.HTTP_201_CREATED)
+async def super_admin_signup(payload: RegisterAdminUser, token: str, session: AsyncSession = Depends(get_session)):
+
+    """
+    This endpoint is for admins to signup with generated link by hospital
+    Roles: "hospital_admin", "department_admin"
+    
+    """
+    email = payload.email
+
+    existing_user = await user_service.get_user_email(payload.email, session)
+
+    if existing_user:
+        raise errors.UserAlreadyExists()
+    
+    new_user = await auth_service.register_super_admin(payload, session)
+
+    token = create_url_safe_token({"email": email})
+
+    mails.send_verification_email(email, token)
+
+    # Save the token in Redis
+    await redis.save_email_verification_token(email, token)
+
+    return {
+        "message": f"Hello! {payload.username} your account has been created successfully! Please check your email for verification link.",
         "user": new_user 
     }
 
@@ -180,6 +257,7 @@ async def logout(bg_task: BackgroundTasks, credentials: HTTPAuthorizationCredent
     bg_task.add_task(delete_blacklisted_token, session)
 
     return {"Message": "User logged out successfully"}
+
 
 
 
