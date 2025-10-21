@@ -16,7 +16,7 @@ email_config = ConnectionConfig(
     MAIL_FROM_NAME=Config.MAIL_FROM_NAME,
     USE_CREDENTIALS=True,
     VALIDATE_CERTS = True,
-    TEMPLATE_FOLDER = Path(BASE_DIR, "templates")
+    # TEMPLATE_FOLDER = Path(BASE_DIR, "templates")
 )
 
 

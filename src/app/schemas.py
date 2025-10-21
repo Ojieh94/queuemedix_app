@@ -43,7 +43,7 @@ class RegisterUser(UserBase):
 class RegisterAdminUser(BaseModel):
     username: str
     email: EmailStrLower
-    role: UserRoles.ADMIN
+    role: UserRoles = UserRoles.ADMIN
     password: str
 
     @field_validator('password')

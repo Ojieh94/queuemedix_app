@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int
 
     model_config=SettingsConfigDict(
-        env_file=env_file,
+        env_file=".env",
         extra="ignore"
     )
 
