@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     EMAIL_PASSWORD: str
     EMAIL_FROM: str
     MAIL_FROM_NAME: str
+    DOMAIN: str
     REDIS_URL: str
     MAIL_SSL_TLS: bool
     MAIL_STARTTLS: bool
