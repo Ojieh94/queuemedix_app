@@ -12,11 +12,7 @@ class Settings(BaseSettings):
     EMAIL_FROM: str
     MAIL_FROM_NAME: str
     REDIS_URL: str
-    DOMAIN: str
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
-    POSTGRES_PORT: int
+    
 
     model_config = SettingsConfigDict(extra="ignore")
 
