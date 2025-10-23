@@ -13,8 +13,6 @@ class Settings(BaseSettings):
     MAIL_FROM_NAME: str
     DOMAIN: str
     REDIS_URL: str
-    MAIL_SSL_TLS: bool
-    MAIL_STARTTLS: bool
     
 
     model_config = SettingsConfigDict(extra="ignore")
