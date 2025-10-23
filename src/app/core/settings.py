@@ -1,5 +1,16 @@
-from functools import lru_cache
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from functools import lru_cache
+
+
+env = os.getenv("ENV", "local")
+
+if env == "local":
+    env_file = ".env.local"
+
+else:
+    env_file = ".env.docker"
+
 
 class Settings(BaseSettings):
     DATABASE_URL: str
@@ -18,7 +29,11 @@ class Settings(BaseSettings):
     POSTGRES_DB: str
     POSTGRES_PORT: int
 
-    model_config = SettingsConfigDict(extra="ignore")
+    model_config=SettingsConfigDict(
+        env_file=".env",
+        extra="ignore"
+    )
+
 
 @lru_cache
 def get_settings():
@@ -28,4 +43,4 @@ Config = get_settings()
 
 broker_url = Config.REDIS_URL
 result_backend = Config.REDIS_URL
-broker_connection_retry_on_startup = True
+broker_connection_retry_on_startup =True
