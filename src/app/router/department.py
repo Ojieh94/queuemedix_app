@@ -37,15 +37,16 @@ async def add_department(hospital_uid: str, payload: DepartmentCreate, session: 
     return department
 
 
-@dept_router.get('/hospitals/departments', status_code=status.HTTP_200_OK, response_model=List[Department], tags=['Hospitals'])
+@dept_router.get('/departments', status_code=status.HTTP_200_OK, response_model=List[Department], tags=['Hospitals'])
 async def list_departments(skip: int = 0, limit: int = 10, search: Optional[str] = "", session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
     """
-    Patients should be view all departments on hospitals accross the platform.
+    Patients should be view all departments on hospitals across the platform.
     This will help them identify which hospital to book appointment with
     """
 
     departments = await dept_service.list_departments(skip, limit, search, session)
+
 
     #access control
     permissions.list_department_permission(current_user, departments)

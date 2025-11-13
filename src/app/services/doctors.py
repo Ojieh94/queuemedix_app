@@ -69,7 +69,7 @@ async def get_all_doctors(skip: int, limit: int, session: AsyncSession):
 async def get_pending_doctors(hospital_id: str, skip: int, limit: int, session: AsyncSession):
     
     stmt = select(Doctor).where(Doctor.hospital_uid == hospital_id, 
-                                Doctor.status == DoctorStatus.PENDING).offset(skip).limit(limit)
+                                Doctor.status == DoctorStatus.UNDER_REVIEW).offset(skip).limit(limit)
     result = await session.execute(stmt)
 
     return result.scalars().all()
@@ -88,8 +88,9 @@ async def change_doctor_availability(doctor_id: str, session: AsyncSession):
 
    if doctor is not None:
       doctor.is_available = not doctor.is_available
-   else:
-      return None
+   
+   return doctor
+   
 
 
 async def approve_doctor(doctor_id: str, session: AsyncSession, status: DoctorStatus):
@@ -105,24 +106,22 @@ async def approve_doctor(doctor_id: str, session: AsyncSession, status: DoctorSt
       return None
    
        
-
 async def update_doctor_info(doctor_id: str, update_data: DoctorProfileUpdate, session: AsyncSession):
-   
-   doctor_to_update = await get_doctor(doctor_id=doctor_id, session=session)
+    doctor_to_update = await get_doctor(doctor_id=doctor_id, session=session)
 
-   if doctor_to_update is not None:
-      update_data_dict = update_data.model_dump()
+    if doctor_to_update is not None:
+        update_data_dict = update_data.model_dump(
+            exclude_unset=True)
 
-      for k, v in update_data_dict.items():
-                setattr(doctor_to_update, k, v)
+        for k, v in update_data_dict.items():
+            setattr(doctor_to_update, k, v)
 
-      await session.commit()
-      await session.refresh(doctor_to_update)
+        await session.commit()
+        await session.refresh(doctor_to_update)
 
-      return doctor_to_update
-   else:
-      return None
-   
+        return doctor_to_update
+    return None
+
 
 async def delete_doctor(doctor_id: str, session: AsyncSession):
     

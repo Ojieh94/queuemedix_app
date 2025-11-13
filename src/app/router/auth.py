@@ -1,3 +1,4 @@
+from typing import Optional
 import uuid
 from fastapi import APIRouter, HTTPException, status, Depends, BackgroundTasks, Request
 from fastapi.responses import JSONResponse
@@ -48,6 +49,10 @@ async def register_user(payload: RegisterUser, session: AsyncSession = Depends(g
     """
     email = payload.email
 
+    existing_username = await user_service.username_exists(payload.username, session)
+    if existing_username:
+        raise errors.UsernameAlreadyExists()
+
     existing_user = await user_service.get_user_email(payload.email, session)
 
     if existing_user:
@@ -69,9 +74,9 @@ async def register_user(payload: RegisterUser, session: AsyncSession = Depends(g
 
 
 @auth_router.post("/auth/signup_link", tags=["Unique Signup Link Generator"])
-async def generate_link(email: str, notes: str, admin_type: AdminType, request: Request, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
+async def generate_link(email: str, notes: str, admin_type: AdminType, request: Request, department_uid: Optional[str] = None, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
 
-    token = await link_service.create_signup_link(email, notes, admin_type, current_user, session)
+    token = await link_service.create_signup_link(email, notes, admin_type, current_user, session, department_uid=department_uid)
 
     # Construct the full URL based on request
     base_url = str(request.base_url).rstrip("/")
@@ -101,6 +106,10 @@ async def admin_signup(payload: RegisterAdminUser, token: str, session: AsyncSes
     """
     email = payload.email
 
+    existing_username = await user_service.username_exists(payload.username, session)
+    if existing_username:
+        raise errors.UsernameAlreadyExists()
+
     existing_user = await user_service.get_user_email(payload.email, session)
 
     if existing_user:
@@ -115,14 +124,14 @@ async def admin_signup(payload: RegisterAdminUser, token: str, session: AsyncSes
 
 
 @auth_router.post("/auth/signup/queue_medix_admin", status_code=status.HTTP_201_CREATED)
-async def super_admin_signup(payload: RegisterAdminUser, token: str, session: AsyncSession = Depends(get_session)):
+async def super_admin_signup(payload: RegisterAdminUser, session: AsyncSession = Depends(get_session)):
 
-    """
-    This endpoint is for admins to signup with generated link by hospital
-    Roles: "hospital_admin", "department_admin"
     
-    """
     email = payload.email
+
+    existing_username = await user_service.username_exists(payload.username, session)
+    if existing_username:
+        raise errors.UsernameAlreadyExists()
 
     existing_user = await user_service.get_user_email(payload.email, session)
 
@@ -145,7 +154,7 @@ async def super_admin_signup(payload: RegisterAdminUser, token: str, session: As
 
 
 @auth_router.post('/auth/signin', status_code=status.HTTP_200_OK)
-async def login(payload: LoginData, session: AsyncSession=Depends(get_session)):
+async def login(payload: LoginData, session: AsyncSession = Depends(get_session)):
 
     username_or_email = payload.username
     password = payload.password
@@ -158,60 +167,57 @@ async def login(payload: LoginData, session: AsyncSession=Depends(get_session)):
     if not user.is_active:
         raise errors.AccountNotVerified(user)
 
-    if user is not None:
+    # Validate password
+    if not verify_password(password, user.hashed_password):
+        raise errors.InvalidEmailOrPassword()
 
-        #Validate password
-        validate_password = verify_password(password, user.hashed_password)
-        
-        if validate_password:
+    # Continue only if valid
+    access_jti = str(uuid.uuid4())
+    refresh_jti = str(uuid.uuid4())
+    session_id = str(uuid.uuid4())
 
-            access_jti = str(uuid.uuid4())
-            refresh_jti = str(uuid.uuid4())
-            session_id = str(uuid.uuid4())
+    user_data = {
+        "user_uid": str(user.uid),
+        "username": user.username,
+        "email": user.email,
+        "role": user.role
+    }
 
-            user_data = {
-                "user_uid": str(user.uid),
-                "username": user.username,
-                "email": user.email,
-                "role": user.role
-            }
+    # Create tokens
+    access_token = create_access_token(
+        user_data=user_data,
+        session_id=session_id,
+        jti=access_jti
+    )
 
-            #create access_token
-            access_token = create_access_token(
-                user_data=user_data,
-                session_id=session_id,
-                jti=access_jti
-            )
+    refresh_token = create_access_token(
+        user_data=user_data,
+        expiry=timedelta(days=REFRESH_TOKEN_EXPIRY),
+        refresh=True,
+        session_id=session_id,
+        jti=refresh_jti
+    )
 
-            #create refresh_token
-            refresh_token = create_access_token(
-                user_data=user_data,
-                expiry= timedelta(days=REFRESH_TOKEN_EXPIRY),
-                refresh=True,
-                session_id=session_id,
-                jti=refresh_jti
-            )
+    decoded_refresh_token = verify_access_token(refresh_token)
+    expires_at = datetime.fromtimestamp(decoded_refresh_token['exp'])
 
-            #decode refresh_token
-            decoded_refresh_token = verify_access_token(refresh_token)
-            expires_at = datetime.fromtimestamp(decoded_refresh_token['exp'])
+    # Save refresh token metadata
+    await save_refresh_token_jti(
+        jti=refresh_jti,
+        session_id=session_id,
+        expires_at=expires_at,
+        user_uid=user.uid,
+        session=session
+    )
 
-            #save refresh_token meta data for easy revoking
-            await save_refresh_token_jti(
-                jti=refresh_jti,
-                session_id=session_id,
-                expires_at=expires_at,
-                user_uid=user.uid,
-                session=session
-            )
+    return JSONResponse(
+        content={
+            "message": f"Welcome back {user.username}",
+            "access_token": access_token,
+            "refresh_token": refresh_token
+        }
+    )
 
-            return JSONResponse(
-                content={
-                    "message": f"Welcome back {user.username}",
-                    "access_token": access_token,
-                    "refresh_token": refresh_token
-                }
-            )
 
 
 @auth_router.get('/auth/me', status_code=status.HTTP_200_OK, response_model=schemas.UserReadMe)

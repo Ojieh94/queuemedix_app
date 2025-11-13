@@ -10,12 +10,12 @@ email_config = ConnectionConfig(
     MAIL_PASSWORD=Config.EMAIL_PASSWORD,
     MAIL_PORT= Config.EMAIL_PORT,
     MAIL_SERVER=Config.EMAIL_SERVER,
-    MAIL_STARTTLS=False,
-    MAIL_SSL_TLS=True,
+    MAIL_STARTTLS=True,
+    MAIL_SSL_TLS=False,
     MAIL_FROM=Config.EMAIL_FROM,
     MAIL_FROM_NAME=Config.MAIL_FROM_NAME,
     USE_CREDENTIALS=True,
-    VALIDATE_CERTS = True,
+    VALIDATE_CERTS = False,
     # TEMPLATE_FOLDER = Path(BASE_DIR, "templates")
 )
 

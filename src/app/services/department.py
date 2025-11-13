@@ -23,16 +23,15 @@ async def create_department(payload: DepartmentCreate, hospital_uid: str, sessio
     return new_department
 
 
-async def list_departments(skip: int, limit: int, search: Optional[str], session: AsyncSession) -> List[Department]:
+async def list_departments(skip: int, limit: int, search: Optional[str], session: AsyncSession):
+    stmt = select(Department)
 
-    stmt =  select(Department).offset(skip).limit(limit)
-    
     if search:
-        stmt = stmt.filter(Department.name.contains(search))
+        stmt = stmt.filter(Department.name.ilike(f"%{search}%"))
 
+    stmt = stmt.order_by(Department.name.asc()).offset(skip).limit(limit)
     result = await session.execute(stmt)
-    
-    return result.scalar_one_or_none()
+    return result.scalars().all()
 
 
 async def get_department_by_id(department_uid: str, session: AsyncSession) -> Department:

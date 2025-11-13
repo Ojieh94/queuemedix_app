@@ -1,3 +1,4 @@
+from calendar import c
 from fastapi import FastAPI, status
 from typing import Any, Callable
 from fastapi.requests import Request
@@ -36,6 +37,10 @@ class UserAlreadyExists(ExceptionSystemManager):
     """User with email already exists. Please proceed to Login"""
     pass
 
+class UsernameAlreadyExists(ExceptionSystemManager):
+    """User with username already exists. Please choose a different username"""
+    pass
+
 class UserNotFound(ExceptionSystemManager):
     """User does not exist!"""
     pass
@@ -53,6 +58,9 @@ class MedicalRecordNotFound(ExceptionSystemManager):
     """Medical record does not exist!"""
     pass
 
+class MedicalRecordExists(ExceptionSystemManager):
+    """Patient already has a medical record for this appointment"""
+
 class InvalidEmailOrPassword(ExceptionSystemManager):
     """Invalid email or password"""
     pass
@@ -67,6 +75,10 @@ class NotAuthorized(ExceptionSystemManager):
 
 class PatientNotFound(ExceptionSystemManager):
     """Patient does not exist!"""
+    pass
+
+class AdminNotFound(ExceptionSystemManager):
+    """Admin does not exist!"""
     pass
 
 class MessageNotFound(ExceptionSystemManager):
@@ -215,6 +227,19 @@ def register_all_errors(app: FastAPI):
             }
         )
     )
+    # UsernameAlreadyExists
+    app.add_exception_handler(
+        UsernameAlreadyExists,
+        create_exception_handler(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            initial_detail={
+                "message": "Username already exists!",
+                "resolution": "Choose a different username",
+                "error_code": "username_exists"
+            }
+        )
+    )
+
     # UserNotFound
     app.add_exception_handler(
         UserNotFound,
@@ -335,6 +360,17 @@ def register_all_errors(app: FastAPI):
             }
         )
     )
+    # AdminNotFound
+    app.add_exception_handler(
+        AdminNotFound,
+        create_exception_handler(
+            status_code=status.HTTP_404_NOT_FOUND,
+            initial_detail={
+                "message": "Admin not found",
+                "error_code": "admin_not_found"
+            }
+        )
+    )
     # MedicalRecordNotFound
     app.add_exception_handler(
         MedicalRecordNotFound,
@@ -342,6 +378,18 @@ def register_all_errors(app: FastAPI):
             status_code=status.HTTP_404_NOT_FOUND,
             initial_detail={
                 "message": "Medical record not found",
+                "error_code": "record_not_found"
+            }
+        )
+    )
+
+    # MedicalRecordExists
+    app.add_exception_handler(
+        MedicalRecordExists,
+        create_exception_handler(
+            status_code=status.HTTP_409_CONFLICT,
+            initial_detail={
+                "message": "Patient already has a medical record for this appointment",
                 "error_code": "record_not_found"
             }
         )

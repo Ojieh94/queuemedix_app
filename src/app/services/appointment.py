@@ -30,15 +30,15 @@ async def create_appointment(patient_uid: str, payload: AppointmentCreate, sessi
     # Broadcast updated queue (real-time to hospital staff)
     await notify_queue_update(hospital_uid=new_appt.hospital_uid, session=session)
 
-    # Notify doctor
-    await send_notification(session, new_appt.doctor_uid, {
+    # Notify hospital
+    await send_notification(session, new_appt.hospital.user_uid, {
         "title": "New Appointment",
         "body": f"You have a new appointment with {new_appt.patient.full_name}",
         "data": {"appointment_uid": str(new_appt.uid)}
     })
 
     # Notify patient
-    await send_notification(session, new_appt.patient_uid, {
+    await send_notification(session, new_appt.patient.user_uid, {
         "title": "Appointment Scheduled",
         "body": f"Your appointment has been booked with {new_appt.hospital.hospital_name}",
         "data": {"appointment_uid": str(new_appt.uid)}
@@ -221,7 +221,7 @@ async def reschedule_appointment(
     await session.refresh(appointment)
 
     # Notify patient
-    await send_notification(session, appointment.patient_uid, {
+    await send_notification(session, appointment.patient.user_uid, {
         "title": "Appointment Rescheduled",
         "body": f"Your appointment with {appointment.hospital.hospital_name}, has been rescheduled to {payload.new_time}",
         "data": {"appointment_uid": str(appointment.uid)}

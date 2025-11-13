@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 import uuid
 from datetime import datetime, date
 from typing import Optional, List
-from src.app.models import UserRoles, HospitalType, AdminType, AppointmentStatus, RecordType, DoctorStatus, HospitalStatus
+from src.app.models import AdminTypeUpdate, UserRoles, HospitalType, AdminType, AppointmentStatus, RecordType, DoctorStatus, HospitalStatus
 
 
 class EmailStrLower(EmailStr):
@@ -109,6 +109,8 @@ class HospitalRead(HospitalBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+
+
 ##########........Patient Model........##########
 class PatientBase(BaseModel):
     full_name: str
@@ -181,7 +183,7 @@ class DoctorProfileUpdate(BaseModel):
     bio: Optional[str] = None
     is_available: Optional[bool] = None
     years_of_experience: Optional[int] = None
-    consultation_fee: Optional[float] = None
+    
 
 class DoctorAssign(BaseModel):
     doctor_uid: str
@@ -190,9 +192,7 @@ class DoctorRead(DoctorBase):
     uid: uuid.UUID 
     status: DoctorStatus = DoctorStatus.UNDER_REVIEW
     user_uid: uuid.UUID
-    department_uid: uuid.UUID
-    created_at: datetime
-    updated_at: datetime
+    department_uid: Optional[uuid.UUID] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -208,8 +208,8 @@ class AdminBase(BaseModel):
 class AdminProfileCreate(AdminBase):
     pass
 
-class AdminProfileUpdate(BaseModel):
-    admin_type: Optional[AdminType] = None
+class AdminProfileUpdate(AdminBase):
+    admin_type: Optional[AdminTypeUpdate] = None
     notes: Optional[str] = None
     department_uid: Optional[uuid.UUID] = None
 
@@ -219,9 +219,7 @@ class AssignAdminDuty(BaseModel):
 class AdminRead(AdminBase):
     uid: uuid.UUID
     user_uid: uuid.UUID
-    created_at: datetime
-    updated_at: datetime
-    notes: str
+    notes: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -257,7 +255,7 @@ class RescheduleAppointment(BaseModel):
 class AppointmentRead(AppointmentBase):
     uid: uuid.UUID
     patient_uid: uuid.UUID
-    doctor_uid: uuid.UUID
+    doctor_uid: Optional[uuid.UUID] = None
     status: AppointmentStatus = AppointmentStatus.PENDING
     rescheduled_from: Optional[datetime] = None
     check_in_time: Optional[datetime] = None
@@ -288,7 +286,7 @@ class DepartmentRead(BaseModel):
 
 
 
-#########............Medical Record Model.........############
+########............Medical Record Model.........############
 class MedicalRecordCreate(BaseModel):
     patient_uid: Optional[uuid.UUID] = None
     doctor_uid: Optional[uuid.UUID] = None
@@ -382,3 +380,6 @@ class UserReadMe(UserBase):
 class DataPlusMessage(BaseModel):
     message: str
     data: MessageRead
+
+
+
