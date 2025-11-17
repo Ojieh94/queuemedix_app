@@ -67,7 +67,7 @@ async def view_hospital_doctors(hospital_uid: str, availability: Optional[bool],
 
 
 @hp_router.get('/hospitals/{hospital_uid}/appointments', status_code=status.HTTP_200_OK, response_model=List[schemas.AppointmentRead])
-async def view_hospital_appointments(hospital_uid: str, status: models.AppointmentStatus, session: AsyncSession = Depends(get_session), current_user: models.User = Depends(get_current_user)):
+async def view_hospital_appointments(hospital_uid: str, status: models.ViewAppointmentStatus, session: AsyncSession = Depends(get_session), current_user: models.User = Depends(get_current_user)):
 
     hospital = await hp_service.get_single_hospital(hospital_uid, session)
 
@@ -80,6 +80,9 @@ async def view_hospital_appointments(hospital_uid: str, status: models.Appointme
     if current_user.role not in access_roles:
         raise errors.NotAuthorized()
     
+    if status == models.ViewAppointmentStatus.ALL:
+        status = None
+        
     #retrieving hospital appointments    
     appointments = await hp_service.view_hospital_appointments(hospital_uid, status, session)
 
@@ -147,3 +150,5 @@ async def assign_duty(admin_uid: str, payload: schemas.AssignAdminDuty, session:
     })
 
     return {"message": "Duty has been assigned successfully"}
+
+

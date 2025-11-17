@@ -9,10 +9,10 @@ from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
 from itsdangerous import URLSafeTimedSerializer,BadSignature, SignatureExpired
 from src.app.core.settings import Config
-from src.app.models import RefreshToken, BlacklistedToken
+from src.app.models import Admin, RefreshToken, BlacklistedToken
 
 
-ACCESS_TOKEN_EXPIRY= 15 #Time in mins(15). Please increase this while developing
+ACCESS_TOKEN_EXPIRY= 30000 #Time in mins(15). Please increase this while developing
 
 pwd_context = CryptContext(
     schemes=["bcrypt"]
@@ -91,7 +91,7 @@ async def validate_refresh_token_jti(jti: str, session:AsyncSession):
     stmt = select(RefreshToken).where(
         RefreshToken.jti == jti,
         RefreshToken.revoked == False,
-        RefreshToken.expires_at > datetime.now()
+        RefreshToken.expires_at > datetime.now(timezone.utc)
         )
     
     result = await session.execute(stmt)
@@ -160,7 +160,7 @@ async def get_blacklisted_token(token: str, session: AsyncSession):
 
 async def delete_blacklisted_token(session: AsyncSession):
 
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
 
     token = delete(BlacklistedToken).where(BlacklistedToken.expires_at < now)
 
@@ -221,9 +221,12 @@ def decode_password_url_safe_token(token: str, max_age: int = 300):  # 300s = 5 
 
 
 def remaining_time(created_at: datetime) -> str:
-    time_diff = created_at - datetime.now()
+    time_diff = created_at - datetime.now(timezone.utc)
     total_seconds = int(time_diff.total_seconds())
     days, remainder = divmod(total_seconds, 86400)
     hours, remainder = divmod(remainder, 3600)
     minutes, seconds = divmod(remainder, 60)
     return f"{days} days, {hours} hours, {minutes} minutes, {seconds} seconds"
+
+
+

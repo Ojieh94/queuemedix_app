@@ -1,3 +1,4 @@
+from sqlalchemy import select, exists
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from src.app.models import User
@@ -68,3 +69,9 @@ async def delete_user(user_id: str, session: AsyncSession):
 
     else:
         return None
+
+
+async def username_exists(username: str, session: AsyncSession) -> bool:
+    stmt = select(exists().where(User.username == username))
+    result = await session.execute(stmt)
+    return result.scalar()  # True or False

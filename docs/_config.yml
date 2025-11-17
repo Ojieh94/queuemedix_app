@@ -1,0 +1,11 @@
+title: QueueMedix Documentation
+remote_theme: pmarsceill/just-the-docs
+logo: assets/logo.png       # optional, remove or add your own logo
+nav_order:
+  - API Reference
+  - Product Documentation
+repository_url: https://github.com/Ojieh94/queuemedix_app
+search_enabled: true
+plugins:
+  - jekyll-remote-theme
+  - jekyll-seo-tag         # optional, improves SEO & social sharing

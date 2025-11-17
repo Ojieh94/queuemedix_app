@@ -4,7 +4,7 @@ from fastapi.security.http import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from typing import List, Any
 from src.app.database.main import get_session
-from src.app.models import User
+from src.app.models import Admin, AdminType, User, UserRoles
 from src.app.core.utils import verify_access_token, validate_refresh_token_jti, get_blacklisted_token_jti
 from src.app.services import user as user_service
 from src.app.core import errors
@@ -81,16 +81,34 @@ async def get_current_user(token_details: dict = Depends(AccessTokenBearer()), s
     
     return user
 
+
 class RoleChecker:
     def __init__(self, allowed_roles: List[str]) -> None:
-        self.allowed_roles = [role for role in allowed_roles]
+        self.allowed_roles = allowed_roles
 
     def __call__(self, current_user: User = Depends(get_current_user)) -> Any:
-        
         user_role = current_user.role
-        if user_role in self.allowed_roles:
-            return True
-        
-        raise errors.RoleCheckAccess()
+        if user_role not in self.allowed_roles:
+            raise errors.RoleCheckAccess()
+        return True
+
+
+
+def role_checker(allowed_roles: List[str]):
+    return RoleChecker(allowed_roles)
 
 refresh_token = RefreshTokenBearer()
+
+
+async def require_super_admin(current_user: User = Depends(get_current_user)):
+    """Ensure the current user is a super admin."""
+
+    # Must be an admin
+    if current_user.role != UserRoles.ADMIN:
+        raise errors.NotAuthorized()
+
+    # Must be a SUPER_ADMIN
+    if not hasattr(current_user, "admin") or current_user.admin.admin_type != AdminType.SUPER_ADMIN:
+        raise errors.RoleCheckAccess()
+
+    return current_user

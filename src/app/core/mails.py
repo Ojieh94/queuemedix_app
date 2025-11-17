@@ -1,7 +1,7 @@
 from src.app.core.settings import Config
 from src.app.core import celery
 from datetime import datetime
-from src.app.models import User
+from src.app.models import Hospital, User
 
 def send_verification_email(email: str, token: str):
     """
@@ -144,13 +144,13 @@ def send_test(email: str,):
 
 
 
-def appointment_success(email: str, user: User, appt_date: datetime):
+def appointment_success(email: str, user: User, appt_date: datetime, hospital: Hospital):
     """
     Sends a friendly confirmation email after successfully booking an appointment.
     """
 
     name = user.patient.full_name
-    hospital = user.hospital.hospital_name
+    hospital_name = hospital.hospital_name
 
     # Format appointment date nicely
     date_str = appt_date.strftime("%A, %B %d, %Y at %I:%M %p")
@@ -169,7 +169,7 @@ def appointment_success(email: str, user: User, appt_date: datetime):
 
             <p style="font-size: 16px; color: #555555; line-height: 1.6;">
                 We’re happy to let you know that your appointment with 
-                <strong>{hospital}</strong> has been successfully scheduled for:
+                <strong>{hospital_name}</strong> has been successfully scheduled for:
             </p>
 
             <div style="background-color: #f9f9f9; border: 1px solid #eee; padding: 15px; margin: 20px 0; border-radius: 6px; text-align: center;">
@@ -243,17 +243,19 @@ def appointment_notification_hospital(email: str, patient: User, appt_date: date
 
     subject = "📌 New Appointment Notification"
 
+    
+
     celery.send_email_task.delay([email], subject, body_html)
 
 
 #canceled appointment
-def appointment_canceled(email: str, user: User, appt_date: datetime):
+def appointment_canceled(email: str, user: User, appt_date: datetime, hospital: Hospital):
     """
     Sends an email after an appointment is canceled.
     """
 
     name = user.patient.full_name
-    hospital = user.hospital.hospital_name
+    hospital_name = hospital.hospital_name
     date_str = appt_date.strftime("%A, %B %d, %Y at %I:%M %p")
 
     body_html = f"""
@@ -268,7 +270,7 @@ def appointment_canceled(email: str, user: User, appt_date: datetime):
             </p>
 
             <p style="font-size: 16px; color: #555555; line-height: 1.6;">
-                Your appointment with <strong>{hospital}</strong> scheduled for:
+                Your appointment with <strong>{hospital_name}</strong> scheduled for:
             </p>
 
             <div style="background-color: #f9f9f9; border: 1px solid #eee; padding: 15px; margin: 20px 0; border-radius: 6px; text-align: center;">
@@ -322,7 +324,7 @@ def appointment_rescheduled(email: str, name: str, hospital_name: str, old_date:
             </p>
 
             <p style="font-size: 16px; color: #555555; line-height: 1.6;">
-                We regrest to inform you, due to unforseen circumstances that your appointment with <strong>{hospital_name}</strong> originally scheduled for:
+                We regret to inform you, due to unforeseen circumstances that your appointment with <strong>{hospital_name}</strong> originally scheduled for:
             </p>
 
             <div style="background-color: #f9f9f9; border: 1px solid #eee; padding: 15px; margin: 15px 0; border-radius: 6px; text-align: center;">

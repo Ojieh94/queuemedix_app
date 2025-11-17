@@ -32,7 +32,8 @@ app = FastAPI(
     title="Medical Queueing System",
     description="A system designed for hospitals and individual practitioners to eliminate the inefficiencies of uncoordinated patient queues by streamlining and managing appointments effectively.",
     version=version,
-    lifespan=lifespan,
+    lifespan=lifespan, 
+    openapi_url=f"/api/{version}/openapi.json",
     docs_url=f"/api/{version}/docs",
     contact={
         "name": "Queuemedix Team",

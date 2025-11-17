@@ -2,39 +2,52 @@ from datetime import datetime
 from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio.session import AsyncSession
-
-
 from src.app.models import MedicalRecord
-from src.app.schemas import  MedicalRecordCreate, MedicalRecordUpdate
+from src.app.schemas import MedicalRecordCreate, MedicalRecordUpdate
+
+
 
 
 
 
 async def create_medical_record(payload: MedicalRecordCreate, session: AsyncSession):
+    """Create a new medical record in the database."""
+
+    new_record = MedicalRecord(**payload.model_dump())
+    session.add(new_record)
     
-    medical_record = MedicalRecord(**payload.model_dump())
-    session.add(medical_record)
     await session.commit()
-    await session.refresh(medical_record)
+    await session.refresh(new_record)
+
+    return new_record
+
     
-    return medical_record
-
-async def get_record(record_id: str, session: AsyncSession):
+async def get_medical_record_by_id(record_id: str, session: AsyncSession) -> Optional[MedicalRecord]:
+    """Retrieve a medical record by its unique identifier."""
     stmt = select(MedicalRecord).where(MedicalRecord.uid == record_id)
-
     result = await session.execute(stmt)
-
     return result.scalar_one_or_none()
 
-async def get_patient_records(patient_id: str, hospital_id: str, skip: int, limit: int, session: AsyncSession):
-    stmt = select(MedicalRecord).where(MedicalRecord.patient_uid == patient_id, MedicalRecord.hospital_uid == hospital_id).offset(skip).limit(limit)
+
+async def get_medical_record_by_patient(patient_id: str, hospital_id: str, offset: int, limit: int, session: AsyncSession) -> Optional[MedicalRecord]:
+    """Retrieve medical records for a specific patient in a hospital with pagination."""
+    stmt = select(MedicalRecord).where(
+        MedicalRecord.patient_uid == patient_id,
+        MedicalRecord.hospital_uid == hospital_id
+    ).offset(offset).limit(limit)
 
     result = await session.execute(stmt)
-
     return result.scalars().all()
 
 
-async def get_medical_records_by_hospital(
+async def get_all_hospital_medical_records(hospital_id: str, offset: int, limit: int, session: AsyncSession) -> List[MedicalRecord]:
+    """Retrieve all medical records for a specific hospital."""
+    stmt = select(MedicalRecord).where(MedicalRecord.hospital_uid == hospital_id).offset(offset).limit(limit)
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+
+async def search_medical_records_by_hospital(
     session: AsyncSession,
     hospital_uid: str,
     page: int = 1,
@@ -61,11 +74,11 @@ async def get_medical_records_by_hospital(
     return result.scalars().all()
 
 
-async def update_medical_record(record_id: str, payload: MedicalRecordUpdate, session: AsyncSession):
-    record_to_update = await get_record(record_id=record_id, session=session)
+async def update_patient_medical_record(record_id: str, payload: MedicalRecordUpdate, session: AsyncSession) -> Optional[MedicalRecord]:
+    """Update an existing medical record with new data."""
+    record_to_update = await get_medical_record_by_id(record_id=record_id, session=session)
 
     if record_to_update is not None:
-
         record_dict = payload.model_dump(exclude_unset=True)
 
         for k, v in record_dict.items():
@@ -78,3 +91,18 @@ async def update_medical_record(record_id: str, payload: MedicalRecordUpdate, se
 
     else:
         return None
+    
+
+
+async def delete_medical_record(record_id: str, session: AsyncSession) -> bool:
+    """Delete a medical record by its unique identifier."""
+    record = await get_medical_record_by_id(record_id=record_id, session=session)
+
+    if record is not None:
+        await session.delete(record)
+        await session.commit()
+        return True
+    else:
+        return False
+
+

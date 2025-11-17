@@ -4,7 +4,7 @@ from sqlmodel import select
 from src.app.schemas import RegisterUser, RegisterAdminUser
 from src.app.models import User, Patient, Hospital, Doctor, Admin, AdminType, SignupLink
 from src.app.core.utils import hash_password
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 async def register_user(payload: RegisterUser, session: AsyncSession):
     
@@ -80,7 +80,7 @@ async def register_admin(payload: RegisterAdminUser, token: str, session: AsyncS
         raise HTTPException(status_code=400, detail="Signup token already used")
 
     # Check if token is expired (optional)
-    if signup_link.created_at < datetime.now() - timedelta(hours=24):
+    if signup_link.created_at < datetime.now(timezone.utc) - timedelta(hours=24):
         raise HTTPException(status_code=400, detail="Signup token has expired")
 
     # Check if the email associated with the token matches the payload
