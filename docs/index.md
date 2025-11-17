@@ -1,6 +1,7 @@
 ---
 title: QueueMedix Documentation
-theme: jekyll-theme-cayman
+remote_theme: mmistakes/minimal-mistakes
+layout: single
 ---
 # Welcome to QueueMedix API Documentation
 
