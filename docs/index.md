@@ -1,7 +1,8 @@
 ---
 title: QueueMedix Documentation
-remote_theme: mmistakes/minimal-mistakes
-layout: single
+remote_theme: pmarsceill/just-the-docs
+theme: just-the-docs
+
 ---
 # Welcome to QueueMedix API Documentation
 
