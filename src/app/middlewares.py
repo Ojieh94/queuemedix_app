@@ -25,13 +25,21 @@ def register_all_middlewares(app: FastAPI):
     
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=[
+            "http://localhost:3000",
+            "https://queuemedix.vercel.app"
+        ],
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        allow_credentials=True
-        )
-    
+    )
+
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["localhost", "127.0.0.1", "testserver", "*.onrender.com"]
-        )
+        allowed_hosts=[
+            "localhost",
+            "127.0.0.1",
+            "*.onrender.com",
+            "*.vercel.app"
+        ]
+    )
