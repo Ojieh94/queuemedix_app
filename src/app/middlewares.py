@@ -23,23 +23,31 @@ def register_all_middlewares(app: FastAPI):
         print(message)
         return response
     
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[
-            "http://localhost:3000",
-            "https://queuemedix.vercel.app"
-        ],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    from fastapi import FastAPI
 
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=[
-            "localhost",
-            "127.0.0.1",
-            "*.onrender.com",
-            "*.vercel.app"
-        ]
-    )
+
+app = FastAPI()
+
+# 1. Add TrustedHostMiddleware (INNER LAYER)
+# This checks if the request is trying to reach YOUR server's domain.
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=[
+        "localhost",
+        "127.0.0.1",
+        "queuemedix-app.onrender.com",  # Your backend URL (Required)
+    ]
+)
+
+# 2. Add CORSMiddleware (OUTER LAYER)
+# This checks if the FRONTEND is allowed to talk to you.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "https://queuemedix.vercel.app"  # Your frontend URL
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
