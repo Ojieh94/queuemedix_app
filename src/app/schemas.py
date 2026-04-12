@@ -82,6 +82,7 @@ class HospitalBase(BaseModel):
     registration_number: str
     ownership_type: HospitalType = HospitalType.PRIVATE
     hospital_ceo: str
+    about: Optional[str] = None
 
 class HospitalProfileCreate(HospitalBase):
     pass
@@ -91,6 +92,7 @@ class HospitalProfileUpdate(BaseModel):
     full_address: Optional[str] = None
     state: Optional[str] = None
     website: Optional[str] = None
+    about: Optional[str] = None
     license_number: Optional[str] = None
     phone_number: Optional[str] = None
     registration_number: Optional[str] = None

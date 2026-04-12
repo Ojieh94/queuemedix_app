@@ -26,12 +26,22 @@ async def update_hospital_profile(payload: HospitalProfileUpdate, hospital_uid: 
 
 
 #retrieving all hospitals
-async def get_hospitals(skip: int, limit: int, search: Optional[str], session: AsyncSession):
+async def get_hospitals(skip: int, limit: int, session: AsyncSession, search: Optional[str] = None, location: Optional[str] = None):
 
     stmt = select(Hospital).offset(skip).limit(limit)
 
-    if search is not None:
-        stmt = stmt.filter(or_(Hospital.hospital_name.contains(search)))
+    if search:
+        stmt = stmt.filter(or_(
+            Hospital.hospital_name.contains(search),
+            Hospital.full_address.contains(search),
+            Hospital.state.contains(search)
+        ))
+
+    if location:
+        stmt = stmt.filter(or_(
+            Hospital.full_address.contains(location),
+            Hospital.state.contains(location)
+        ))
 
     result = await session.execute(stmt)
 

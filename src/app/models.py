@@ -127,6 +127,7 @@ class Hospital(SQLModel, table=True):
     user_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
         "users.uid", ondelete="CASCADE"), nullable=False, index=True))
     website: Optional[str] = Field(default=None)
+    about: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
     license_number: str = Field(default=None, sa_column=Column(
         String, unique=True, nullable=False))
     phone_number: str = Field(default=None)

@@ -43,9 +43,31 @@ async def update_hospital_profile(hospital_uid: str, payload: schemas.HospitalPr
 
 
 @hp_router.get("/hospitals", status_code=status.HTTP_200_OK, response_model=List[schemas.HospitalRead])
-async def get_all_hospitals( skip: int = 0, limit: int = 10, search: Optional[str] = "", session: AsyncSession = Depends(get_session), current_user: models.User = Depends(get_current_user)):
+async def get_all_hospitals(
+    skip: int = 0,
+    limit: int = 10,
+    search: Optional[str] = None,
+    location: Optional[str] = None,
+    session: AsyncSession = Depends(get_session),
+    current_user: models.User = Depends(get_current_user)
+):
 
-    hospitals = await hp_service.get_hospitals(skip, limit, search, session)
+    hospitals = await hp_service.get_hospitals(skip, limit, session, search=search, location=location)
+
+    return hospitals
+
+
+@hp_router.get("/hospitals/by-location", status_code=status.HTTP_200_OK, response_model=List[schemas.HospitalRead])
+async def get_hospitals_by_location(
+    location: str,
+    skip: int = 0,
+    limit: int = 10,
+    session: AsyncSession = Depends(get_session),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Return hospitals whose address or state matches the requested location."""
+
+    hospitals = await hp_service.get_hospitals(skip, limit, session, search=None, location=location)
 
     return hospitals
 
