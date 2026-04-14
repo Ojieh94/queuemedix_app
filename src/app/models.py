@@ -111,6 +111,8 @@ class User(SQLModel, table=True):
         back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
     notifications: List["Notification"] = Relationship(
         back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
+    ratings: List["HospitalRating"] = Relationship(
+        back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
 
 # Hospital Model
 
@@ -138,6 +140,7 @@ class Hospital(SQLModel, table=True):
     status: HospitalStatus = Field(default=HospitalStatus.UNDER_REVIEW, sa_column=Column(
         pgEnum(HospitalStatus, name="hospital_status", create_type=True), nullable=False))
     hospital_ceo: str = Field(default=None)
+    average_rating: float = Field(default=0.0, sa_column=Column(pg.NUMERIC(2,1), nullable=False, default=0.0))
     is_verified: bool = Field(
         default=False, sa_column=Column(pg.BOOLEAN, nullable=False))
 
@@ -157,6 +160,8 @@ class Hospital(SQLModel, table=True):
                                                   "lazy": "selectin", "cascade": "all, delete-orphan"}, passive_deletes=True)
     medical_record: List["MedicalRecord"] = Relationship(back_populates="hospital", sa_relationship_kwargs={
                                                          "lazy": "selectin", "cascade": "all, delete-orphan"}, passive_deletes=True)
+    ratings: List["HospitalRating"] = Relationship(back_populates="hospital", sa_relationship_kwargs={
+                                                          "lazy": "selectin", "cascade": "all, delete-orphan"}, passive_deletes=True)
 
 
 # Patient Model
@@ -190,6 +195,27 @@ class Patient(SQLModel, table=True):
     medical_record: List["MedicalRecord"] = Relationship(back_populates="patient", sa_relationship_kwargs={
                                                          "lazy": "selectin", "cascade": "all, delete-orphan"}, passive_deletes=True)
 
+
+# Hospital Ratings Model
+class HospitalRating(SQLModel, table=True):
+    __tablename__ = "hospital_ratings"
+
+    uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
+        pg.UUID(as_uuid=True), nullable=False, primary_key=True))
+    hospital_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
+        "hospitals.uid", ondelete="CASCADE"), nullable=False, index=True))
+    user_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
+        "users.uid", ondelete="CASCADE"), nullable=False, index=True))
+    rating: float = Field(sa_column=Column(pg.NUMERIC(2,1), nullable=False))
+    created_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    )
+    updated_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    )
+
+    hospital: "Hospital" = Relationship(back_populates="ratings", sa_relationship_kwargs={"lazy": "selectin"})
+    user: "User" = Relationship(back_populates="ratings", sa_relationship_kwargs={"lazy": "selectin"})
 
 # Doctor Model
 class Doctor(SQLModel, table=True):

@@ -1,6 +1,9 @@
+from decimal import Decimal
+
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlmodel import select, or_
-from src.app.models import Hospital, Doctor, Appointment, AppointmentStatus, HospitalStatus
+from src.app.models import Hospital, Doctor, Appointment, AppointmentStatus, HospitalStatus, HospitalRating
 from typing import Optional, List
 from src.app.schemas import HospitalProfileUpdate, VerifyHospital, AssignAdminDuty
 from src.app.services import admins as ad_service
@@ -67,6 +70,52 @@ async def get_single_hospital(hospital_uid: str, session: AsyncSession):
     result = await session.execute(stmt)
 
     return result.scalar_one_or_none()
+
+
+async def get_hospital_rating(hospital_uid: str, user_uid: str, session: AsyncSession):
+    stmt = select(HospitalRating).where(
+        HospitalRating.hospital_uid == hospital_uid,
+        HospitalRating.user_uid == user_uid
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def compute_hospital_average_rating(hospital_uid: str, session: AsyncSession) -> float:
+    stmt = select(func.avg(HospitalRating.rating)).where(
+        HospitalRating.hospital_uid == hospital_uid
+    )
+    result = await session.execute(stmt)
+    average = result.scalar_one_or_none() or 0.0
+    return float(round(average, 1))
+
+
+async def rate_hospital(hospital_uid: str, user_uid: str, rating_value: float, session: AsyncSession):
+    hospital = await get_single_hospital(hospital_uid, session)
+
+    if not hospital:
+        return None
+
+    rating_value = float(round(Decimal(str(rating_value)), 1))
+
+    existing_rating = await get_hospital_rating(hospital_uid, user_uid, session)
+    if existing_rating:
+        existing_rating.rating = rating_value
+    else:
+        rating_record = HospitalRating(
+            hospital_uid=hospital_uid,
+            user_uid=user_uid,
+            rating=rating_value
+        )
+        session.add(rating_record)
+
+    await session.commit()
+
+    hospital.average_rating = await compute_hospital_average_rating(hospital_uid, session)
+    await session.commit()
+    await session.refresh(hospital)
+
+    return hospital
 
 
 async def view_hospital_appointments(hospital_uid: str, status: Optional[AppointmentStatus], session: AsyncSession) -> List[Appointment]:

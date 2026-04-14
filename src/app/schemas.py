@@ -102,11 +102,26 @@ class HospitalProfileUpdate(BaseModel):
 class VerifyHospital(BaseModel):
     status: HospitalStatus
 
+class HospitalRatingCreate(BaseModel):
+    rating: float
+
+    @field_validator('rating')
+    def validate_rating(cls, value):
+        if value < 1 or value > 5:
+            raise ValueError('Rating must be between 1 and 5')
+
+        decimal_rating = Decimal(str(value))
+        if decimal_rating.as_tuple().exponent < -1:
+            raise ValueError('Rating can have at most one decimal place')
+
+        return float(decimal_rating.quantize(Decimal('0.1')))
+
 class HospitalRead(HospitalBase):
     uid: uuid.UUID
     user_uid: uuid.UUID
     is_verified: bool = False
     status: HospitalStatus = HospitalStatus.UNDER_REVIEW
+    average_rating: float = 0.0
 
     model_config = ConfigDict(from_attributes=True)
 
