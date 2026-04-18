@@ -122,6 +122,19 @@ async def get_single_hospital(hospital_uid: str, session: AsyncSession = Depends
     return hospital
 
 
+@hp_router.get('/hospitals/{hospital_uid}/appointment-stats', status_code=status.HTTP_200_OK, response_model=schemas.HospitalAppointmentStats)
+async def get_hospital_appointment_stats(hospital_uid: str, session: AsyncSession = Depends(get_session), current_user: models.User = Depends(get_current_user)):
+
+    hospital = await hp_service.get_single_hospital(hospital_uid, session)
+
+    if not hospital:
+        raise errors.HospitalNotFound()
+    
+    stats = await hp_service.get_hospital_appointment_stats(hospital_uid, session)
+
+    return stats
+
+
 @hp_router.post('/hospitals/{hospital_uid}/ratings', status_code=status.HTTP_200_OK, response_model=schemas.HospitalRead)
 async def rate_hospital(hospital_uid: str, payload: schemas.HospitalRatingCreate, session: AsyncSession = Depends(get_session), current_user: models.User = Depends(get_current_user)):
     hospital = await hp_service.get_single_hospital(hospital_uid, session)

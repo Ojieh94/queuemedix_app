@@ -171,4 +171,64 @@ async def assign_duties_to_department_admin(admin_uid: str, payload: AssignAdmin
     await session.commit()
     
     return admin
+
+
+async def get_hospital_appointment_stats(hospital_uid: str, session: AsyncSession):
+    from datetime import date
+    today = date.today()
+
+    # Total appointments
+    total_stmt = select(func.count(Appointment.uid)).where(Appointment.hospital_uid == hospital_uid)
+    total_result = await session.execute(total_stmt)
+    total_appointments = total_result.scalar_one()
+
+    # Today's appointments
+    todays_stmt = select(func.count(Appointment.uid)).where(
+        Appointment.hospital_uid == hospital_uid,
+        Appointment.scheduled_time.isnot(None),
+        func.date(Appointment.scheduled_time) == today
+    )
+    todays_result = await session.execute(todays_stmt)
+    todays_appointments = todays_result.scalar_one()
+
+    # Pending appointments
+    pending_stmt = select(func.count(Appointment.uid)).where(
+        Appointment.hospital_uid == hospital_uid,
+        Appointment.status == AppointmentStatus.PENDING
+    )
+    pending_result = await session.execute(pending_stmt)
+    pending_appointments = pending_result.scalar_one()
+
+    # Completed appointments
+    completed_stmt = select(func.count(Appointment.uid)).where(
+        Appointment.hospital_uid == hospital_uid,
+        Appointment.status == AppointmentStatus.COMPLETED
+    )
+    completed_result = await session.execute(completed_stmt)
+    completed_appointments = completed_result.scalar_one()
+
+    # Canceled appointments
+    canceled_stmt = select(func.count(Appointment.uid)).where(
+        Appointment.hospital_uid == hospital_uid,
+        Appointment.status == AppointmentStatus.CANCELED
+    )
+    canceled_result = await session.execute(canceled_stmt)
+    canceled_appointments = canceled_result.scalar_one()
+
+    # In-progress appointments
+    in_progress_stmt = select(func.count(Appointment.uid)).where(
+        Appointment.hospital_uid == hospital_uid,
+        Appointment.status == AppointmentStatus.IN_PROGRESS
+    )
+    in_progress_result = await session.execute(in_progress_stmt)
+    in_progress_appointments = in_progress_result.scalar_one()
+
+    return {
+        "total_appointments": total_appointments,
+        "todays_appointments": todays_appointments,
+        "pending_appointments": pending_appointments,
+        "completed_appointments": completed_appointments,
+        "canceled_appointments": canceled_appointments,
+        "in_progress_appointments": in_progress_appointments,
+    }
     

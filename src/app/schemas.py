@@ -126,6 +126,17 @@ class HospitalRead(HospitalBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class HospitalAppointmentStats(BaseModel):
+    total_appointments: int
+    todays_appointments: int
+    pending_appointments: int
+    completed_appointments: int
+    canceled_appointments: int
+    in_progress_appointments: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 
 
 ##########........Patient Model........##########

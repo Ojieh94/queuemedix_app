@@ -15,7 +15,8 @@ from src.app.router import (
     hospital, 
     medical_records, 
     users,
-    message)
+    message,
+    statistics)
 from src.app.websocket import notification_ws, appointment_ws, support_chat
 
 version = "v1"
@@ -69,6 +70,7 @@ def start_scheduler():
 app.include_router(auth.auth_router, prefix=f"/api/{version}")
 app.include_router(users.user_router, prefix=f"/api/{version}")
 app.include_router(hospital.hp_router, prefix=f"/api/{version}")
+app.include_router(statistics.stats_router, prefix=f"/api/{version}")
 app.include_router(department.dept_router, prefix=f"/api/{version}")
 app.include_router(patients.pat_router, prefix=f"/api/{version}")
 app.include_router(doctors.doctor_router, prefix=f"/api/{version}")
