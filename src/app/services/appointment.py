@@ -1,7 +1,8 @@
 from sqlalchemy.ext.asyncio.session import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from typing import List, Optional
-from src.app.models import Appointment, AppointmentStatus, Doctor, User, RescheduleHistory
+from src.app.models import Appointment, AppointmentStatus, Doctor, User, RescheduleHistory, Hospital, Department, Patient
 from src.app.schemas import AppointmentCreate, AppointmentStatusUpdate, RescheduleAppointment
 from src.app.websocket.appointment_ws import notify_queue_update
 from src.app.services.notification import send_notification
@@ -69,7 +70,12 @@ async def create_appointment(patient_uid: str, payload: AppointmentCreate, sessi
 
 async def get_appointments(skip: int, limit: int, status: Optional[AppointmentStatus], session: AsyncSession) -> List[Appointment]:
 
-    stmt = select(Appointment).order_by(Appointment.scheduled_time).offset(skip).limit(limit)
+    stmt = select(Appointment).options(
+        selectinload(Appointment.patient).selectinload(Patient.user),
+        selectinload(Appointment.doctor).selectinload(Doctor.user),
+        selectinload(Appointment.hospital).selectinload(Hospital.user),
+        selectinload(Appointment.department)
+    ).order_by(Appointment.scheduled_time).offset(skip).limit(limit)
 
     if status is not None:
         stmt = stmt.where(Appointment.status == status)
@@ -81,7 +87,12 @@ async def get_appointments(skip: int, limit: int, status: Optional[AppointmentSt
 
 async def get_patient_appointments(patient_uid: str, skip: int, limit: int, session: AsyncSession) -> List[Appointment]:
 
-    stmt = select(Appointment).where(Appointment.patient_uid == patient_uid).order_by(Appointment.scheduled_time).offset(skip).limit(limit)
+    stmt = select(Appointment).where(Appointment.patient_uid == patient_uid).options(
+        selectinload(Appointment.patient).selectinload(Patient.user),
+        selectinload(Appointment.doctor).selectinload(Doctor.user),
+        selectinload(Appointment.hospital).selectinload(Hospital.user),
+        selectinload(Appointment.department)
+    ).order_by(Appointment.scheduled_time).offset(skip).limit(limit)
 
     result = await session.execute(stmt)
 
@@ -90,12 +101,22 @@ async def get_patient_appointments(patient_uid: str, skip: int, limit: int, sess
 
 async def get_appointment_by_id(appointment_uid: str, session: AsyncSession) -> Appointment:
 
-    return (await session.execute(select(Appointment).where(Appointment.uid == appointment_uid))).scalar_one_or_none()
+    return (await session.execute(select(Appointment).where(Appointment.uid == appointment_uid).options(
+        selectinload(Appointment.patient).selectinload(Patient.user),
+        selectinload(Appointment.doctor).selectinload(Doctor.user),
+        selectinload(Appointment.hospital).selectinload(Hospital.user),
+        selectinload(Appointment.department)
+    ))).scalar_one_or_none()
 
 
 async def get_hospital_appointments(hospital_uid: str, skip: int, limit: int, session: AsyncSession) -> List[Appointment]:
 
-    stmt = select(Appointment).where(Appointment.hospital_uid == hospital_uid).order_by(Appointment.scheduled_time).offset(skip).limit(limit)
+    stmt = select(Appointment).where(Appointment.hospital_uid == hospital_uid).options(
+        selectinload(Appointment.patient).selectinload(Patient.user),
+        selectinload(Appointment.doctor).selectinload(Doctor.user),
+        selectinload(Appointment.hospital).selectinload(Hospital.user),
+        selectinload(Appointment.department)
+    ).order_by(Appointment.scheduled_time).offset(skip).limit(limit)
 
     result = await session.execute(stmt)
 
@@ -104,7 +125,12 @@ async def get_hospital_appointments(hospital_uid: str, skip: int, limit: int, se
 
 async def appointment_by_schedule_time(hospital_uid: str, scheduled_time: str, session: AsyncSession) ->Appointment:
 
-    stmt = select(Appointment).where(Appointment.hospital_uid == hospital_uid, Appointment.scheduled_time == scheduled_time)
+    stmt = select(Appointment).where(Appointment.hospital_uid == hospital_uid, Appointment.scheduled_time == scheduled_time).options(
+        selectinload(Appointment.patient).selectinload(Patient.user),
+        selectinload(Appointment.doctor).selectinload(Doctor.user),
+        selectinload(Appointment.hospital).selectinload(Hospital.user),
+        selectinload(Appointment.department)
+    )
 
     result = await session.execute(stmt)
 
@@ -113,7 +139,12 @@ async def appointment_by_schedule_time(hospital_uid: str, scheduled_time: str, s
 
 async def get_uncompleted_appointments(session: AsyncSession) -> List[Appointment]:
 
-    stmt = select(Appointment).where(Appointment.status != AppointmentStatus.COMPLETED).order_by(Appointment.scheduled_time)
+    stmt = select(Appointment).where(Appointment.status != AppointmentStatus.COMPLETED).options(
+        selectinload(Appointment.patient).selectinload(Patient.user),
+        selectinload(Appointment.doctor).selectinload(Doctor.user),
+        selectinload(Appointment.hospital).selectinload(Hospital.user),
+        selectinload(Appointment.department)
+    ).order_by(Appointment.scheduled_time)
 
     result = await session.execute(stmt)
 
@@ -122,7 +153,11 @@ async def get_uncompleted_appointments(session: AsyncSession) -> List[Appointmen
 
 async def get_single_doctor(doctor_uid: str, session: AsyncSession) -> Doctor:
 
-    stmt = select(Doctor).where(Doctor.uid == doctor_uid)
+    stmt = select(Doctor).where(Doctor.uid == doctor_uid).options(
+        selectinload(Doctor.user),
+        selectinload(Doctor.hospital).selectinload(Hospital.user),
+        selectinload(Doctor.department)
+    )
 
     result = await session.execute(stmt)
 
@@ -146,7 +181,12 @@ async def cancel_appointment(appointment_uid: int, session: AsyncSession):
 
 async def get_all_pending_appointments(session: AsyncSession) -> List[Appointment]:
     
-    stmt = select(Appointment).where(Appointment.status == AppointmentStatus.PENDING).order_by(Appointment.scheduled_time)
+    stmt = select(Appointment).where(Appointment.status == AppointmentStatus.PENDING).options(
+        selectinload(Appointment.patient).selectinload(Patient.user),
+        selectinload(Appointment.doctor).selectinload(Doctor.user),
+        selectinload(Appointment.hospital).selectinload(Hospital.user),
+        selectinload(Appointment.department)
+    ).order_by(Appointment.scheduled_time)
 
     result = await session.execute(stmt)
 
@@ -156,7 +196,12 @@ async def get_all_pending_appointments(session: AsyncSession) -> List[Appointmen
 
 async def get_patient_pending_appointments(patient_uid: str, session: AsyncSession) -> Appointment:
 
-    stmt = select(Appointment).where(Appointment.patient_uid == patient_uid, Appointment.status != AppointmentStatus.COMPLETED)
+    stmt = select(Appointment).where(Appointment.patient_uid == patient_uid, Appointment.status != AppointmentStatus.COMPLETED).options(
+        selectinload(Appointment.patient).selectinload(Patient.user),
+        selectinload(Appointment.doctor).selectinload(Doctor.user),
+        selectinload(Appointment.hospital).selectinload(Hospital.user),
+        selectinload(Appointment.department)
+    )
     
     result = await session.execute(stmt)
 

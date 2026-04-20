@@ -1,13 +1,18 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio.session import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from src.app.models import Admin
+from src.app.models import Admin, Hospital
 from src.app.schemas import AdminProfileUpdate, RegisterAdminUser
 
 
 async def get_admin(admin_id: str, session: AsyncSession):
 
-   stmt = select(Admin).where(Admin.uid == admin_id)
+   stmt = select(Admin).where(Admin.uid == admin_id).options(
+       selectinload(Admin.user),
+       selectinload(Admin.hospital).selectinload(Hospital.user),
+       selectinload(Admin.department)
+   )
    result = await session.execute(stmt)
 
    return result.scalar_one_or_none()
@@ -15,14 +20,22 @@ async def get_admin(admin_id: str, session: AsyncSession):
 
 async def get_admins(skip: int, limit: int, session: AsyncSession):
 
-   stmt = select(Admin).offset(skip).limit(limit)
+   stmt = select(Admin).offset(skip).limit(limit).options(
+       selectinload(Admin.user),
+       selectinload(Admin.hospital).selectinload(Hospital.user),
+       selectinload(Admin.department)
+   )
    result = await session.execute(stmt)
 
    return result.scalars().all()
 
 async def get_hospital_admins(hospital_id: str, session: AsyncSession):
 
-   stmt = select(Admin).where(Admin.hospital_uid == hospital_id)
+   stmt = select(Admin).where(Admin.hospital_uid == hospital_id).options(
+       selectinload(Admin.user),
+       selectinload(Admin.hospital).selectinload(Hospital.user),
+       selectinload(Admin.department)
+   )
    result = await session.execute(stmt)
 
    return result.scalars().all()

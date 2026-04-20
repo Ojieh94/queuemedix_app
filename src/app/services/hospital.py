@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio.session import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select, or_
 from src.app.models import Hospital, Doctor, Appointment, AppointmentStatus, HospitalStatus, HospitalRating
 from typing import Optional, List
@@ -31,7 +32,7 @@ async def update_hospital_profile(payload: HospitalProfileUpdate, hospital_uid: 
 #retrieving all hospitals
 async def get_hospitals(skip: int, limit: int, session: AsyncSession, search: Optional[str] = None, location: Optional[str] = None):
 
-    stmt = select(Hospital).offset(skip).limit(limit)
+    stmt = select(Hospital).options(selectinload(Hospital.user)).offset(skip).limit(limit)
 
     if search:
         stmt = stmt.filter(or_(
@@ -65,7 +66,7 @@ async def view_hospital_doctors(hospital_uid: str, availability: Optional[bool],
 
 async def get_single_hospital(hospital_uid: str, session: AsyncSession):
 
-    stmt = select(Hospital).where(Hospital.uid == hospital_uid)
+    stmt = select(Hospital).where(Hospital.uid == hospital_uid).options(selectinload(Hospital.user))
 
     result = await session.execute(stmt)
 

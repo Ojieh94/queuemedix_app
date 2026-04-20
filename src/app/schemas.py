@@ -118,7 +118,7 @@ class HospitalRatingCreate(BaseModel):
 
 class HospitalRead(HospitalBase):
     uid: uuid.UUID
-    user_uid: uuid.UUID
+    user: "UserRead"
     is_verified: bool = False
     status: HospitalStatus = HospitalStatus.UNDER_REVIEW
     average_rating: float = 0.0
@@ -171,7 +171,7 @@ class PatientProfileUpdate(BaseModel):
 
 class PatientRead(PatientBase):
     uid: uuid.UUID
-    user_uid: uuid.UUID
+    user: "UserRead"
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -219,8 +219,9 @@ class DoctorAssign(BaseModel):
 class DoctorRead(DoctorBase):
     uid: uuid.UUID 
     status: DoctorStatus = DoctorStatus.UNDER_REVIEW
-    user_uid: uuid.UUID
-    department_uid: Optional[uuid.UUID] = None
+    user: "UserRead"
+    hospital: Optional["HospitalRead"] = None
+    department: Optional["DepartmentRead"] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -246,7 +247,9 @@ class AssignAdminDuty(BaseModel):
 
 class AdminRead(AdminBase):
     uid: uuid.UUID
-    user_uid: uuid.UUID
+    user: "UserRead"
+    hospital: Optional["HospitalRead"] = None
+    department: Optional["DepartmentRead"] = None
     notes: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -282,8 +285,10 @@ class RescheduleAppointment(BaseModel):
 
 class AppointmentRead(AppointmentBase):
     uid: uuid.UUID
-    patient_uid: uuid.UUID
-    doctor_uid: Optional[uuid.UUID] = None
+    patient: "PatientRead"
+    doctor: Optional["DoctorRead"] = None
+    hospital: "HospitalRead"
+    department: "DepartmentRead"
     status: AppointmentStatus = AppointmentStatus.PENDING
     rescheduled_from: Optional[datetime] = None
     check_in_time: Optional[datetime] = None
@@ -304,9 +309,7 @@ class DepartmentUpdate(BaseModel):
 class DepartmentRead(BaseModel):
     uid: uuid.UUID
     name: str
-    hospital_uid: uuid.UUID
-    appointment_uid: uuid.UUID
-    doctor_iud: uuid.UUID
+    hospital: "HospitalRead"
     created_at: datetime
     updated_at: datetime
 
@@ -331,9 +334,9 @@ class MedicalRecordUpdate(BaseModel):
 
 class MedicalRecordRead(BaseModel):
     uid: uuid.UUID
-    patient_uid: uuid.UUID
-    doctor_uid: uuid.UUID
-    hospital_uid: Optional[uuid.UUID] = None
+    patient: "PatientRead"
+    doctor: "DoctorRead"
+    hospital: Optional["HospitalRead"] = None
     record_type: RecordType
     description: str
     record_date: datetime
@@ -358,8 +361,8 @@ class MessageMarkAsRead(BaseModel):
 
 class MessageRead(BaseModel):
     uid: uuid.UUID
-    sender_uid: uuid.UUID
-    receiver_uid: uuid.UUID
+    sender: "UserRead"
+    receiver: "UserRead"
     content: str
     timestamp: datetime
     is_read: bool = False

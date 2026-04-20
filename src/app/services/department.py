@@ -1,7 +1,8 @@
 from sqlalchemy.ext.asyncio.session import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from typing import Optional, List
-from src.app.models import Department
+from src.app.models import Department, Hospital
 from src.app.schemas import DepartmentCreate, DepartmentUpdate
 
 """
@@ -24,7 +25,7 @@ async def create_department(payload: DepartmentCreate, hospital_uid: str, sessio
 
 
 async def list_departments(skip: int, limit: int, search: Optional[str], session: AsyncSession):
-    stmt = select(Department)
+    stmt = select(Department).options(selectinload(Department.hospital).selectinload(Hospital.user))
 
     if search:
         stmt = stmt.filter(Department.name.ilike(f"%{search}%"))
@@ -36,7 +37,7 @@ async def list_departments(skip: int, limit: int, search: Optional[str], session
 
 async def get_department_by_id(department_uid: str, session: AsyncSession) -> Department:
 
-    return (await session.execute(select(Department).where(Department.uid == department_uid))).scalar_one_or_none()
+    return (await session.execute(select(Department).where(Department.uid == department_uid).options(selectinload(Department.hospital).selectinload(Hospital.user)))).scalar_one_or_none()
 
 
 async def update_department(department_uid: str, payload: DepartmentUpdate, session: AsyncSession) -> Department:

@@ -1,4 +1,5 @@
 from sqlalchemy.ext.asyncio.session import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select, or_
 from src.app.models import Patient
 from typing import Optional
@@ -7,7 +8,7 @@ from src.app.schemas import PatientProfileUpdate
 
 async def get_patient(patient_uid: str, session: AsyncSession):
     
-    stmt = select(Patient).where(Patient.uid == patient_uid)
+    stmt = select(Patient).where(Patient.uid == patient_uid).options(selectinload(Patient.user))
 
     result = await session.execute(stmt)
 
@@ -37,7 +38,7 @@ async def update_patient(payload: PatientProfileUpdate, patient_uid: str, sessio
 
 async def get_all_patients(skip: int, limit: int, search: Optional[str], session: AsyncSession):
 
-    stmt = select(Patient).offset(skip).limit(limit)
+    stmt = select(Patient).offset(skip).limit(limit).options(selectinload(Patient.user))
 
     if search:
         stmt = stmt.filter(or_(Patient.full_name.contains(search), Patient.hospital_card_id.contains(search)))
@@ -49,7 +50,7 @@ async def get_all_patients(skip: int, limit: int, search: Optional[str], session
 
 async def get_patient_by_card(card_id: str, session: AsyncSession):
 
-    stmt = select(Patient).where(Patient.hospital_card_id == card_id)
+    stmt = select(Patient).where(Patient.hospital_card_id == card_id).options(selectinload(Patient.user))
 
     result = await session.execute(stmt)
 

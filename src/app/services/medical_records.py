@@ -2,7 +2,8 @@ from datetime import datetime
 from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio.session import AsyncSession
-from src.app.models import MedicalRecord
+from sqlalchemy.orm import selectinload
+from src.app.models import MedicalRecord, Patient, Doctor, Hospital
 from src.app.schemas import MedicalRecordCreate, MedicalRecordUpdate
 
 
@@ -24,7 +25,11 @@ async def create_medical_record(payload: MedicalRecordCreate, session: AsyncSess
     
 async def get_medical_record_by_id(record_id: str, session: AsyncSession) -> Optional[MedicalRecord]:
     """Retrieve a medical record by its unique identifier."""
-    stmt = select(MedicalRecord).where(MedicalRecord.uid == record_id)
+    stmt = select(MedicalRecord).where(MedicalRecord.uid == record_id).options(
+        selectinload(MedicalRecord.patient).selectinload(Patient.user),
+        selectinload(MedicalRecord.doctor).selectinload(Doctor.user),
+        selectinload(MedicalRecord.hospital).selectinload(Hospital.user)
+    )
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -34,6 +39,10 @@ async def get_medical_record_by_patient(patient_id: str, hospital_id: str, offse
     stmt = select(MedicalRecord).where(
         MedicalRecord.patient_uid == patient_id,
         MedicalRecord.hospital_uid == hospital_id
+    ).options(
+        selectinload(MedicalRecord.patient).selectinload(Patient.user),
+        selectinload(MedicalRecord.doctor).selectinload(Doctor.user),
+        selectinload(MedicalRecord.hospital).selectinload(Hospital.user)
     ).offset(offset).limit(limit)
 
     result = await session.execute(stmt)
@@ -42,7 +51,11 @@ async def get_medical_record_by_patient(patient_id: str, hospital_id: str, offse
 
 async def get_all_hospital_medical_records(hospital_id: str, offset: int, limit: int, session: AsyncSession) -> List[MedicalRecord]:
     """Retrieve all medical records for a specific hospital."""
-    stmt = select(MedicalRecord).where(MedicalRecord.hospital_uid == hospital_id).offset(offset).limit(limit)
+    stmt = select(MedicalRecord).where(MedicalRecord.hospital_uid == hospital_id).options(
+        selectinload(MedicalRecord.patient).selectinload(Patient.user),
+        selectinload(MedicalRecord.doctor).selectinload(Doctor.user),
+        selectinload(MedicalRecord.hospital).selectinload(Hospital.user)
+    ).offset(offset).limit(limit)
     result = await session.execute(stmt)
     return result.scalars().all()
 

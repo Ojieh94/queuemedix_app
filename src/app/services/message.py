@@ -1,4 +1,5 @@
 from sqlalchemy.ext.asyncio.session import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from src.app.models import Message, User
 from src.app.schemas import MessageCreate, MessageUpdate
@@ -57,6 +58,10 @@ async def get_chat_history(other_user_id: str, session: AsyncSession, current_us
 
     result = await session.execute(
         select(Message)
+        .options(
+            selectinload(Message.sender),
+            selectinload(Message.receiver)
+        )
         .where(
             ((Message.sender_uid == current_user.uid) & (Message.receiver_uid == other_user_id)) |
             ((Message.sender_uid == other_user_id) & (Message.receiver_uid == current_user.uid))
@@ -70,7 +75,10 @@ async def get_chat_history(other_user_id: str, session: AsyncSession, current_us
 
 async def get_message(message_uid: str, session: AsyncSession):
 
-    stmt = select(Message).where(Message.uid == message_uid)
+    stmt = select(Message).where(Message.uid == message_uid).options(
+        selectinload(Message.sender),
+        selectinload(Message.receiver)
+    )
 
     result = await session.execute(stmt)
 
