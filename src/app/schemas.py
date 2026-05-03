@@ -19,6 +19,7 @@ class EmailStrLower(EmailStr):
 class UserBase(BaseModel):
     username: str
     email: EmailStrLower
+    profile_picture: Optional[str] = None
     role: UserRoles = UserRoles.PATIENT
 
 ###########.........User Registration.........#########

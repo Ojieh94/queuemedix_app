@@ -79,6 +79,8 @@ class User(SQLModel, table=True):
         String, nullable=False, unique=True))
     email: str = Field(sa_column=Column(
         String, unique=True, nullable=False, index=True))
+    profile_picture: Optional[str] = Field(default=None, sa_column=Column(
+        String, nullable=True))
     hashed_password: str = Field(exclude=True)
     role: UserRoles = Field(sa_column=Column(
         pgEnum(UserRoles, name="user_role", create_type=True), nullable=False))

@@ -1,8 +1,8 @@
-"""add about to hospitals
+"""initial
 
-Revision ID: 23030c5ff8aa
+Revision ID: 1479974f5ce1
 Revises: 
-Create Date: 2026-05-03 20:46:28.611377
+Create Date: 2026-05-03 22:00:50.852186
 
 """
 from typing import Sequence, Union
@@ -12,14 +12,17 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '23030c5ff8aa'
+revision: str = '1479974f5ce1'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-def upgrade():
-    op.add_column('hospitals', sa.Column('about', sa.Text(), nullable=True))
+def upgrade() -> None:
+    """Upgrade schema."""
+    pass
 
-def downgrade():
-    op.drop_column('hospitals', 'about')
+
+def downgrade() -> None:
+    """Downgrade schema."""
+    pass
