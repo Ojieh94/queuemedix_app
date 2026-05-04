@@ -44,7 +44,7 @@ async def register_user(payload: RegisterUser, session: AsyncSession):
             country=" ",
             state_of_residence=" ",
             home_address=" ",
-            license_number=" ",
+            license_number=f"PendingDoctorLicense-{new_user.uid}",
             specialization=" ",
             qualification=" ",
             years_of_experience=0
@@ -55,9 +55,9 @@ async def register_user(payload: RegisterUser, session: AsyncSession):
             hospital_name=f"Pending-{new_user.uid}",
             full_address=" ",
             state="",
-            license_number=" ",
+            license_number=f"PendingLicense-{new_user.uid}",
             phone_number=" ",
-            registration_number=" ",
+            registration_number=f"PendingReg-{new_user.uid}",
             hospital_ceo=" "
         )
     else:
