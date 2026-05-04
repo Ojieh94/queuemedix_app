@@ -6,8 +6,9 @@ from src.app.models import User, Patient, Hospital, Doctor, Admin, AdminType, Si
 from src.app.core.utils import hash_password
 from datetime import date, datetime, timedelta, timezone
 
+
 async def register_user(payload: RegisterUser, session: AsyncSession):
-    
+
     model_dict = payload.model_dump()
     # Create base user
     new_user = User(**model_dict)
@@ -32,7 +33,7 @@ async def register_user(payload: RegisterUser, session: AsyncSession):
             blood_type=" ",
             emergency_contact_full_name=" ",
             emergency_contact_phone_number=" "
-            )
+        )
     elif new_user.role == "doctor":
         profile = Doctor(
             user_uid=new_user.uid,
@@ -47,18 +48,18 @@ async def register_user(payload: RegisterUser, session: AsyncSession):
             specialization=" ",
             qualification=" ",
             years_of_experience=0
-            )
+        )
     elif new_user.role == "hospital":
         profile = Hospital(
             user_uid=new_user.uid,
-            hospital_name=" ",
+            hospital_name=f"Pending-{new_user.uid}",
             full_address=" ",
             state="",
             license_number=" ",
             phone_number=" ",
             registration_number=" ",
             hospital_ceo=" "
-            )
+        )
     else:
         raise HTTPException(status_code=400, detail="Invalid role.")
 
@@ -75,9 +76,10 @@ async def register_admin(payload: RegisterAdminUser, token: str, session: AsyncS
     signup_link = (await session.execute(select(SignupLink).where(SignupLink.token == token))).scalar_one_or_none()
     if not signup_link:
         raise HTTPException(status_code=400, detail="Invalid signup token")
-    
+
     if signup_link.is_used:
-        raise HTTPException(status_code=400, detail="Signup token already used")
+        raise HTTPException(
+            status_code=400, detail="Signup token already used")
 
     # Check if token is expired (optional)
     if signup_link.created_at < datetime.now(timezone.utc) - timedelta(hours=24):
@@ -85,13 +87,14 @@ async def register_admin(payload: RegisterAdminUser, token: str, session: AsyncS
 
     # Check if the email associated with the token matches the payload
     if signup_link.email != payload.email:
-        raise HTTPException(status_code=400, detail="Token email does not match")
+        raise HTTPException(
+            status_code=400, detail="Token email does not match")
 
     # Mark the token as used
     signup_link.is_used = True
-    
+
     model_dict = payload.model_dump()
-    
+
     # Create base user
     new_user = User(**model_dict)
 
@@ -118,16 +121,15 @@ async def register_admin(payload: RegisterAdminUser, token: str, session: AsyncS
     return new_user
 
 
-
 async def register_super_admin(payload: RegisterAdminUser, session: AsyncSession):
-    
+
     model_dict = payload.model_dump()
-    
+
     # Create base user
     new_user = User(**model_dict)
 
     new_user.hashed_password = hash_password(payload.password)
-    
+
     session.add(new_user)
     await session.flush()  # get new_user.id without committing yet
 
@@ -143,6 +145,3 @@ async def register_super_admin(payload: RegisterAdminUser, session: AsyncSession
     await session.refresh(new_user)
 
     return new_user
-
-
-   
