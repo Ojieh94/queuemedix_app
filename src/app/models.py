@@ -172,7 +172,9 @@ class Patient(SQLModel, table=True):
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), nullable=False, primary_key=True))
-    full_name: str = Field(default=None)
+    first_name: str = Field(default=None)
+    middle_name: Optional[str] = Field(default=None)
+    last_name: str = Field(default=None)
     hospital_card_id: str = Field(default=None, nullable=True)
     phone_number: str = Field(default=None)
     date_of_birth: Optional[date] = Field(default=None)
@@ -187,7 +189,7 @@ class Patient(SQLModel, table=True):
         "users.uid", ondelete="CASCADE"), nullable=False, index=True))
 
     def __repr__(self):
-        return f"<Patient uid= {self.uid}, Patient's Full_name= {self.full_name}>"
+        return f"<Patient uid= {self.uid}, Patient's first_Name= {self.first_name}, Patient's last_name= {self.last_name}>"
 
     # Relationship
     user: "User" = Relationship(
@@ -225,7 +227,9 @@ class Doctor(SQLModel, table=True):
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), nullable=False, primary_key=True))
-    full_name: str = Field(default=None)
+    first_name: str = Field(default=None)
+    middle_name: Optional[str] = Field(default=None)
+    last_name: str = Field(default=None)
     phone_number: str = Field(default=None)
     date_of_birth: Optional[date] = Field(default=None)
     gender: str = Field(default=None)
@@ -250,7 +254,7 @@ class Doctor(SQLModel, table=True):
         "users.uid", ondelete="CASCADE"), nullable=False, index=True))
 
     def __repr__(self):
-        return f"<Doctor uid={self.uid}, Doctor full_name={self.full_name}>"
+        return f"<Doctor uid={self.uid}, Doctor first_name={self.first_name}, Doctor's last_name={self.last_name}>"
 
     # Relationship
     user: "User" = Relationship(
@@ -271,7 +275,9 @@ class Admin(SQLModel, table=True):
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), nullable=False, primary_key=True))
-    full_name: str = Field(default=None)
+    first_name: str = Field(default=None)
+    middle_name: Optional[str] = Field(default=None)
+    last_name: str = Field(default=None)
     hospital_uid: Optional[uuid.UUID] = Field(sa_column=Column(pg.UUID(
         as_uuid=True), ForeignKey("hospitals.uid", ondelete="CASCADE"), nullable=True, index=True))
     user_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
@@ -283,7 +289,7 @@ class Admin(SQLModel, table=True):
     notes: Optional[str] = None
 
     def __repr__(self):
-        return f"<ADMIN: uid={self.uid}, Name={self.full_name}, Admin Type={self.admin_type}>"
+        return f"<ADMIN: uid={self.uid}, First Name={self.first_name}, Last Name={self.last_name} Admin Type={self.admin_type}>"
 
     # Relationships
     user: "User" = Relationship(

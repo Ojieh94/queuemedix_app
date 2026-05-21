@@ -6,6 +6,10 @@ from src.app.core.dependencies import AccessTokenBearer, get_current_user, requi
 from src.app.services import user as user_service
 from src.app.database.main import get_session
 from src.app.core import errors
+from fastapi import UploadFile, File
+from src.app.services.upload_service import (
+    upload_profile_picture,
+)
 
 user_router = APIRouter(prefix="/users",
     tags=['User']
@@ -59,3 +63,36 @@ async def delete_user(user_id: str, session: AsyncSession = Depends(get_session)
     
     else:
         return {"Message": "User deleted successfully"}
+
+
+
+@user_router.patch(
+    "/profile-picture",
+    response_model=User,
+)
+async def update_profile_picture(
+    file: UploadFile = File(...),
+    current_user: User = Depends(
+        get_current_user
+    ),
+    session: AsyncSession = Depends(get_session),
+):
+    # validate image
+    if not file.content_type.startswith(
+        "image/"
+    ):
+        raise errors.FileUpload()
+
+    # upload image
+    image_url = (
+        await upload_profile_picture(file)
+    )
+
+    # update user
+    current_user.profile_picture = image_url
+
+    session.commit()
+
+    session.refresh(current_user)
+
+    return current_user

@@ -22,7 +22,9 @@ async def register_user(payload: RegisterUser, session: AsyncSession):
     if new_user.role == "patient":
         profile = Patient(
             user_uid=new_user.uid,
-            full_name=" ",
+            first_name=" ",
+            middle_name="",
+            last_name="",
             hospital_card_id=" ",
             phone_number=" ",
             date_of_birth=date.today(),
@@ -37,7 +39,9 @@ async def register_user(payload: RegisterUser, session: AsyncSession):
     elif new_user.role == "doctor":
         profile = Doctor(
             user_uid=new_user.uid,
-            full_name=" ",
+            first_name=" ",
+            middle_name="",
+            last_name="",
             phone_number=" ",
             date_of_birth=date.today(),
             gender=" ",
@@ -107,7 +111,9 @@ async def register_admin(payload: RegisterAdminUser, token: str, session: AsyncS
     # Create profile based on role
     profile = Admin(
         user_uid=new_user.uid,
-        full_name="",
+        first_name=" ",
+        middle_name="",
+        last_name="",
         admin_type=signup_link.admin_type,
         hospital_uid=signup_link.hospital_uid,
         notes=signup_link.notes,
@@ -136,7 +142,9 @@ async def register_super_admin(payload: RegisterAdminUser, session: AsyncSession
     # Create profile based on role
     profile = Admin(
         user_uid=new_user.uid,
-        full_name="",
+        first_name=" ",
+        middle_name="",
+        last_name="",
         admin_type=AdminType.SUPER_ADMIN
     )
 
