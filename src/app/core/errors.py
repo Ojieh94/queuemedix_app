@@ -119,6 +119,10 @@ class MissingSessionID(ExceptionSystemManager):
     """Missing session_id"""
     pass
 
+class FileUpload(ExceptionSystemManager):
+    """Invalid image type"""
+    pass
+
 def create_exception_handler(status_code: int, initial_detail: Any) -> Callable[[Request, Exception], JSONResponse]:
 
     async def exception_handler(request: Request, exception: ExceptionSystemManager):
@@ -380,6 +384,18 @@ def register_all_errors(app: FastAPI):
                 "message": "Medical record not found",
                 "error_code": "record_not_found"
             }
+        )
+    )
+
+    app.add_exception_handler(
+        FileUpload,
+        create_exception_handler(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            initial_detail={
+                "message": "File must be an image",
+                "error_code": "invalid_file_type"
+            }
+
         )
     )
 

@@ -152,14 +152,14 @@ async def assign_doctor(appointment_uid: str, payload: DoctorAssign, session: As
     #push notification to doctor
     await send_notification(session, doctor.user_uid, {
         "title": "Assigned Appointment",
-        "body": f"Hello {doctor.full_name}, You have been assigned to {appointment.patient.full_name}'s appointment",
+        "body": f"Hello {doctor.last_name}, You have been assigned to {appointment.patient.first_name}'s appointment",
         "data": {"appointment": str(appointment.uid)}
     })
 
     # Push notification to patient
     await send_notification(session, appointment.patient.user_uid, {
         "title": "Doctor Assigned",
-        "body": f"Your appointment has been assigned to Dr. {doctor.full_name}",
+        "body": f"Your appointment has been assigned to Dr. {doctor.last_name}",
         "data": {"appointment_uid": str(appointment.uid)}
     })
 

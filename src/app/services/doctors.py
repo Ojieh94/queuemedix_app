@@ -1,5 +1,5 @@
 from typing import Optional
-from sqlalchemy import select, func, or_, desc, asc
+from sqlalchemy import func, or_, desc, asc
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
@@ -16,7 +16,7 @@ async def search_doctors(
     status: Optional[str] = None,
     page: int = 1,
     per_page: int = 20,
-    sort_by: str = "full_name",
+    sort_by: str = "last_name",
     sort_dir: str = "asc",
 ) -> dict:
     stmt = select(Doctor).options(
@@ -29,7 +29,7 @@ async def search_doctors(
         pattern = f"%{q}%"
         stmt = stmt.where(
             or_(
-                Doctor.full_name.ilike(pattern),
+                Doctor.last_name.ilike(pattern),
                 Doctor.specialization.ilike(pattern),
                 Doctor.bio.ilike(pattern),
             )
@@ -44,7 +44,7 @@ async def search_doctors(
     if status:
         stmt = stmt.where(Doctor.status == status)
 
-    order_col = getattr(Doctor, sort_by, Doctor.full_name)
+    order_col = getattr(Doctor, sort_by, Doctor.last_name)
     stmt = stmt.order_by(asc(order_col) if sort_dir ==
                          "asc" else desc(order_col))
 

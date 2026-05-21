@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
     POSTGRES_PORT: int
+    CLOUDINARY_CLOUD_NAME: str
+    CLOUDINARY_API_KEY: int
+    CLOUDINARY_API_SECRET: str
 
     model_config=SettingsConfigDict(
         env_file=".env",

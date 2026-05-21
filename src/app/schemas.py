@@ -21,7 +21,6 @@ class EmailStrLower(EmailStr):
 class UserBase(BaseModel):
     username: str
     email: EmailStrLower
-    profile_picture: Optional[str] = None
     role: UserRoles = UserRoles.PATIENT
 
 ########### .........User Registration.........#########
@@ -76,6 +75,7 @@ class UserRead(UserBase):
     uid: uuid.UUID
     role: UserRoles
     is_active: bool = False
+    profile_picture: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -132,11 +132,11 @@ class HospitalRatingCreate(BaseModel):
         if value < 1 or value > 5:
             raise ValueError('Rating must be between 1 and 5')
 
-        decimal_rating = Decimal(str(value))
+        decimal_rating = Decimal(str(value))  # noqa: F821
         if decimal_rating.as_tuple().exponent < -1:
             raise ValueError('Rating can have at most one decimal place')
 
-        return float(decimal_rating.quantize(Decimal('0.1')))
+        return float(decimal_rating.quantize(Decimal('0.1')))  # noqa: F821
 
 
 class HospitalRead(HospitalBase):
@@ -162,7 +162,9 @@ class HospitalAppointmentStats(BaseModel):
 
 ########## ........Patient Model........##########
 class PatientBase(BaseModel):
-    full_name: str
+    first_name: str
+    middle_name: Optional[str] = None
+    last_name: str
     hospital_card_id: str
     phone_number: str
     date_of_birth: date
@@ -180,7 +182,9 @@ class PatientProfileCreate(PatientBase):
 
 
 class PatientProfileUpdate(BaseModel):
-    full_name: Optional[str] = None
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
     hospital_card_id: Optional[str] = None
     phone_number: Optional[str] = None
     date_of_birth: Optional[date] = None
@@ -202,7 +206,9 @@ class PatientRead(PatientBase):
 
 ########## .........Doctor Model...........################
 class DoctorBase(BaseModel):
-    full_name: str
+    first_name: str
+    middle_name: Optional[str] = None
+    last_name: str
     phone_number: str
     date_of_birth: Optional[date] = None
     gender: str
@@ -223,7 +229,9 @@ class DoctorProfileCreate(DoctorBase):
 
 
 class DoctorProfileUpdate(BaseModel):
-    full_name: Optional[str] = None
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
     phone_number: Optional[str] = None
     date_of_birth: Optional[date] = None
     gender: Optional[str] = None
@@ -255,7 +263,9 @@ class DoctorRead(DoctorBase):
 
 ######### ........Admin Model...........#########
 class AdminBase(BaseModel):
-    full_name: str
+    first_name: str
+    middle_name: Optional[str] = None
+    last_name: str
     hospital_uid: Optional[uuid.UUID] = None
     admin_type: AdminType = AdminType.HOSPITAL_ADMIN
     department_uid: Optional[uuid.UUID] = None
@@ -266,6 +276,9 @@ class AdminProfileCreate(AdminBase):
 
 
 class AdminProfileUpdate(AdminBase):
+    first_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = None
     admin_type: Optional[AdminTypeUpdate] = None
     notes: Optional[str] = None
     department_uid: Optional[uuid.UUID] = None

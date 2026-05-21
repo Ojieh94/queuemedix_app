@@ -41,7 +41,7 @@ async def get_all_patients(skip: int, limit: int, search: Optional[str], session
     stmt = select(Patient).offset(skip).limit(limit).options(selectinload(Patient.user))
 
     if search:
-        stmt = stmt.filter(or_(Patient.full_name.contains(search), Patient.hospital_card_id.contains(search)))
+        stmt = stmt.filter(or_(Patient.first_name.contains(search), Patient.last_name.contains(search), Patient.hospital_card_id.contains(search)))
 
     result = await session.execute(stmt)
 
