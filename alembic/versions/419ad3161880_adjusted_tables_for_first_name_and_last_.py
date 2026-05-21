@@ -14,7 +14,7 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision: str = '419ad3161880'
-down_revision: Union[str, Sequence[str], None] = '1479974f5ce1'
+down_revision: Union[str, Sequence[str], None] = "1479974f5ce1"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
