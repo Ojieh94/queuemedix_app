@@ -453,6 +453,7 @@ class UserReadMe(UserBase):
     uid: uuid.UUID
     role: UserRoles
     is_active: bool = False
+    profile_picture: Optional[str]
     created_at: datetime
     updated_at: datetime
     admin: Optional[AdminRead]
