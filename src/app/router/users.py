@@ -91,8 +91,8 @@ async def update_profile_picture(
     # update user
     current_user.profile_picture = image_url
 
-    session.commit()
+    await session.commit()
 
-    session.refresh(current_user)
+    await session.refresh(current_user)
 
     return current_user
