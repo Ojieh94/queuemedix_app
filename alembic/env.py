@@ -1,3 +1,5 @@
+from src.app.models import SQLModel
+from src.app.core.settings import Config
 import asyncio
 import os
 import sys
@@ -20,8 +22,6 @@ if config.config_file_name is not None:
 # ensure app package is importable
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.app.core.settings import Config
-from src.app.models import SQLModel
 
 # set target metadata for 'autogenerate' support
 target_metadata = SQLModel.metadata
