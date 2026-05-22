@@ -45,22 +45,23 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # List of tables where your FastAPI code expects first and last names
     target_tables = ['admins', 'doctors', 'patients', 'hospitals']
 
     for table in target_tables:
-        # Check if the table exists in the database first
         bind = op.get_bind()
         inspector = sa.inspect(bind)
         if inspector.has_table(table):
             columns = [col['name'] for col in inspector.get_columns(table)]
 
-            # Safely add first_name if missing
             if 'first_name' not in columns:
                 op.add_column(table, sa.Column(
                     'first_name', sqlmodel.sql.sqltypes.AutoString(), nullable=True))
 
-            # Safely add last_name if missing
+            #  ADD THIS BLOCK FOR MIDDLE NAME:
+            if 'middle_name' not in columns:
+                op.add_column(table, sa.Column(
+                    'middle_name', sqlmodel.sql.sqltypes.AutoString(), nullable=True))
+
             if 'last_name' not in columns:
                 op.add_column(table, sa.Column(
                     'last_name', sqlmodel.sql.sqltypes.AutoString(), nullable=True))
@@ -78,5 +79,8 @@ def downgrade() -> None:
 
             if 'last_name' in columns:
                 op.drop_column(table, 'last_name')
+            # REMOVE MIDDLE NAME ON DOWNGRADE:
+            if 'middle_name' in columns:
+                op.drop_column(table, 'middle_name')
             if 'first_name' in columns:
                 op.drop_column(table, 'first_name')
