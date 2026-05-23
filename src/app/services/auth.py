@@ -74,6 +74,77 @@ async def register_user(payload: RegisterUser, session: AsyncSession):
     return new_user
 
 
+async def register_user_test(payload: RegisterUser, session: AsyncSession):
+    """
+    Test registration endpoint - automatically verifies user without email requirement.
+    For deployment testing only.
+    """
+    model_dict = payload.model_dump()
+    # Create base user
+    new_user = User(**model_dict)
+
+    new_user.hashed_password = hash_password(payload.password)
+    new_user.is_active = True  # Auto-verify the user
+
+    session.add(new_user)
+    await session.flush()  # get new_user.id without committing yet
+
+    # Create profile based on role
+    if new_user.role == "patient":
+        profile = Patient(
+            user_uid=new_user.uid,
+            first_name=" ",
+            middle_name="",
+            last_name="",
+            hospital_card_id=" ",
+            phone_number=" ",
+            date_of_birth=date.today(),
+            gender=" ",
+            country=" ",
+            state_of_residence=" ",
+            home_address=" ",
+            blood_type=" ",
+            emergency_contact_full_name=" ",
+            emergency_contact_phone_number=" "
+        )
+    elif new_user.role == "doctor":
+        profile = Doctor(
+            user_uid=new_user.uid,
+            first_name=" ",
+            middle_name="",
+            last_name="",
+            phone_number=" ",
+            date_of_birth=date.today(),
+            gender=" ",
+            country=" ",
+            state_of_residence=" ",
+            home_address=" ",
+            license_number=f"PendingDoctorLicense-{new_user.uid}",
+            specialization=" ",
+            qualification=" ",
+            years_of_experience=0
+        )
+    elif new_user.role == "hospital":
+        profile = Hospital(
+            user_uid=new_user.uid,
+            hospital_name=f"Pending-{new_user.uid}",
+            full_address=" ",
+            state="",
+            license_number=f"PendingLicense-{new_user.uid}",
+            phone_number=" ",
+            registration_number=f"PendingReg-{new_user.uid}",
+            hospital_ceo=" "
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Invalid role.")
+
+    session.add(profile)
+    await session.commit()
+    await session.refresh(new_user)
+
+    return new_user
+
+
 async def register_admin(payload: RegisterAdminUser, token: str, session: AsyncSession):
 
     # Validate the signup token

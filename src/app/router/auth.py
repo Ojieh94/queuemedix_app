@@ -73,6 +73,33 @@ async def register_user(payload: RegisterUser, session: AsyncSession = Depends(g
     }
 
 
+@auth_router.post('/auth/test-register', status_code=status.HTTP_201_CREATED)
+async def register_user_test(payload: RegisterUser, session: AsyncSession = Depends(get_session)):
+    """
+    Test registration endpoint for deployment testing.
+    
+    Does NOT require email verification and automatically activates the user.
+    **For testing in deployment only.**
+    
+    Roles: "doctor", "hospital", "patient"
+    """
+    existing_username = await user_service.username_exists(payload.username, session)
+    if existing_username:
+        raise errors.UsernameAlreadyExists()
+
+    existing_user = await user_service.get_user_email(payload.email, session)
+
+    if existing_user:
+        raise errors.UserAlreadyExists()
+    
+    new_user = await auth_service.register_user_test(payload=payload, session=session)
+
+    return {
+        "message": f"{payload.role.capitalize()}'s test account created and verified successfully!",
+        "user": new_user 
+    }
+
+
 @auth_router.post("/auth/signup_link", tags=["Unique Signup Link Generator"])
 async def generate_link(email: str, notes: str, admin_type: AdminType, request: Request, department_uid: Optional[str] = None, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
 
