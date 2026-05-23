@@ -40,6 +40,13 @@ async def get_department_by_id(department_uid: str, session: AsyncSession) -> De
     return (await session.execute(select(Department).where(Department.uid == department_uid).options(selectinload(Department.hospital).selectinload(Hospital.user)))).scalar_one_or_none()
 
 
+async def get_hospital_departments(hospital_uid: str, session: AsyncSession) -> Department:
+
+    result = await session.execute(select(Department).where(Department.hospital_uid == hospital_uid).options(selectinload(Department.hospital).selectinload(Hospital.user)))
+    
+    return result.scalars().all()
+
+
 async def update_department(department_uid: str, payload: DepartmentUpdate, session: AsyncSession) -> Department:
 
     department_to_update = await get_department_by_id(department_uid, session)

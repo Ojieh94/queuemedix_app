@@ -48,8 +48,7 @@ async def get_all_hospitals(
     limit: int = 10,
     search: Optional[str] = None,
     location: Optional[str] = None,
-    session: AsyncSession = Depends(get_session),
-    current_user: models.User = Depends(get_current_user)
+    session: AsyncSession = Depends(get_session)
 ):
 
     hospitals = await hp_service.get_hospitals(skip, limit, session, search=search, location=location)
