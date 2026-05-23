@@ -360,9 +360,7 @@ class DepartmentUpdate(BaseModel):
 class DepartmentRead(BaseModel):
     uid: uuid.UUID
     name: str
-    hospital: "HospitalRead"
-    created_at: datetime
-    updated_at: datetime
+   
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -453,6 +451,7 @@ class UserReadMe(UserBase):
     uid: uuid.UUID
     role: UserRoles
     is_active: bool = False
+    profile_picture: Optional[str]
     created_at: datetime
     updated_at: datetime
     admin: Optional[AdminRead]

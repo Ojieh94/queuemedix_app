@@ -41,7 +41,7 @@ async def add_department(hospital_uid: str, payload: DepartmentCreate, session: 
 async def list_departments(skip: int = 0, limit: int = 10, search: Optional[str] = "", session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
     """
-    Patients should be view all departments on hospitals across the platform.
+    Patients should be able to view all departments on hospitals across the platform.
     This will help them identify which hospital to book appointment with
     """
 
@@ -67,6 +67,17 @@ async def get_department(department_uid: str, session: AsyncSession = Depends(ge
     
     return department
 
+@dept_router.get('/departments/{hospital_uid}', status_code=status.HTTP_200_OK, response_model=List[DepartmentRead])
+async def get_hospital_departments(hospital_uid: str, session: AsyncSession = Depends(get_session)):
+
+    """This endpoint returns department belonging to a specific hospital"""
+
+    department = await dept_service.get_hospital_departments(hospital_uid, session)
+    
+    if not department:
+        raise errors.DepartmentNotFound()
+    
+    return department
 
 @dept_router.patch('/departments/{department_uid}', status_code=status.HTTP_202_ACCEPTED, response_model=Department)
 async def update_department(department_uid: str, payload: DepartmentUpdate, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
