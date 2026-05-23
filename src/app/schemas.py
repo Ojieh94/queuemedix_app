@@ -360,9 +360,7 @@ class DepartmentUpdate(BaseModel):
 class DepartmentRead(BaseModel):
     uid: uuid.UUID
     name: str
-    hospital: "HospitalRead"
-    created_at: datetime
-    updated_at: datetime
+   
 
     model_config = ConfigDict(from_attributes=True)
 
