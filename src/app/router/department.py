@@ -38,7 +38,7 @@ async def add_department(hospital_uid: str, payload: DepartmentCreate, session: 
 
 
 @dept_router.get('/departments', status_code=status.HTTP_200_OK, response_model=List[Department], tags=['Hospitals'])
-async def list_departments(skip: int = 0, limit: int = 10, search: Optional[str] = "", session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+async def list_departments(skip: int = 0, limit: int = 10, search: Optional[str] = "", session: AsyncSession = Depends(get_session)):
 
     """
     Patients should be able to view all departments on hospitals across the platform.
@@ -46,36 +46,31 @@ async def list_departments(skip: int = 0, limit: int = 10, search: Optional[str]
     """
 
     departments = await dept_service.list_departments(skip, limit, search, session)
-
-
-    #access control
-    permissions.list_department_permission(current_user, departments)
     
     return departments
 
 
 @dept_router.get('/departments/{department_uid}', status_code=status.HTTP_200_OK, response_model=Department)
-async def get_department(department_uid: str, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+async def get_department(department_uid: str, session: AsyncSession = Depends(get_session)):
 
     department = await dept_service.get_department_by_id(department_uid, session)
     
     if not department:
         raise errors.DepartmentNotFound()
     
-    #access control
-    permissions.get_department_permission(current_user, department)
-    
     return department
 
-@dept_router.get('/departments/{hospital_uid}', status_code=status.HTTP_200_OK, response_model=List[DepartmentRead])
+@dept_router.get('/hospitals/{hospital_uid}/departments', status_code=status.HTTP_200_OK, response_model=List[DepartmentRead])
 async def get_hospital_departments(hospital_uid: str, session: AsyncSession = Depends(get_session)):
 
     """This endpoint returns department belonging to a specific hospital"""
 
     department = await dept_service.get_hospital_departments(hospital_uid, session)
     
-    if not department:
-        raise errors.DepartmentNotFound()
+    hospital = await hp_service.get_single_hospital(hospital_uid, session)
+
+    if not hospital:
+        raise errors.HospitalNotFound()
     
     return department
 
