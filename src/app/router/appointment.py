@@ -52,12 +52,12 @@ async def add_appointment(patient_uid: str, payload: AppointmentCreate, session:
                             detail="Time slot is already taken")
 
     # Check if the patient is already scheduled for an appointment
-    existing_appointment = await apt_service.get_patient_pending_appointments(
-        patient_uid, session)
+    # existing_appointment = await apt_service.get_patient_pending_appointments(
+    #     patient_uid, session)
     
-    if existing_appointment:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail="Patient already has a pending appointment")
+    # if existing_appointment:
+    #     raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+    #                         detail="Patient already has a pending appointment")
 
     # Check if the hospital exists
     hospital = await hp_service.get_single_hospital(payload.hospital_uid, session)

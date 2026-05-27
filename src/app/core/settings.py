@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     CLOUDINARY_API_SECRET: str
 
     model_config=SettingsConfigDict(
-        env_file=".env",
+        env_file=env_file,
         extra="ignore"
     )
 
