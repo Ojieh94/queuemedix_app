@@ -1,14 +1,13 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, asc
-
+from sqlalchemy.orm import selectinload
 from src.app.websocket.connection_manager import manager
 from src.app.models import Appointment
 from src.app.core.dependencies import get_session
 from src.app.core.utils import remaining_time
 
 router = APIRouter(prefix="/ws", tags=["Appointments", "Websockets"])
-
 
 @router.websocket("/appointments/{hospital_uid}")
 async def appointments_ws(websocket: WebSocket, hospital_uid: str, session: AsyncSession = Depends(get_session)):
@@ -32,17 +31,18 @@ async def notify_queue_update(session: AsyncSession, hospital_uid: str):
     Sends updated queue only to clients connected to the specific hospital.
     """
     queue = (
-        await session.execute(
-            select(Appointment)
-            .where(Appointment.hospital_uid == hospital_uid)
-            .order_by(asc(Appointment.scheduled_time))
-        )
-    ).scalars().all()
+    await session.execute(
+        select(Appointment)
+        .options(selectinload(Appointment.patient))
+        .where(Appointment.hospital_uid == hospital_uid)
+        .order_by(asc(Appointment.scheduled_time))
+    )
+).scalars().all()
 
     queue_data = [
         {
             "id": appt.uid,
-            "patient": appt.patient.full_name,
+            "patient": f"{appt.patient.first_name} {appt.patient.last_name}",
             "patient_id": appt.patient_uid,
             "time": appt.scheduled_time.isoformat(),
             "status": appt.status.value,
@@ -72,7 +72,7 @@ async def send_initial_queue(websocket: WebSocket, session: AsyncSession, hospit
     queue_data = [
         {
             "id": appt.uid,
-            "patient": appt.patient.full_name,
+            "patient": f"{appt.patient.first_name} {appt.patient.last_name}",
             "patient_id": appt.patient_uid,
             "time": appt.scheduled_time.isoformat(),
             "status": appt.status.value,

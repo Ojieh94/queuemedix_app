@@ -149,7 +149,7 @@ def appointment_success(email: str, user: User, appt_date: datetime, hospital: H
     Sends a friendly confirmation email after successfully booking an appointment.
     """
 
-    name = user.patient.full_name
+    name = f"{user.patient.first_name} {user.patient.last_name}"
     hospital_name = hospital.hospital_name
 
     # Format appointment date nicely
@@ -209,7 +209,7 @@ def appointment_notification_hospital(email: str, patient: User, appt_date: date
     """
     Sends an email notification to the hospital when a patient books an appointment.
     """
-    patient_name = patient.patient.full_name
+    patient_name = f"{patient.patient.first_name} {patient.patient.last_name}"
 
     body_html = f"""
     <html>
@@ -254,7 +254,7 @@ def appointment_canceled(email: str, user: User, appt_date: datetime, hospital: 
     Sends an email after an appointment is canceled.
     """
 
-    name = user.patient.full_name
+    name = f"{user.patient.first_name} {user.patient.last_name}"
     hospital_name = hospital.hospital_name
     date_str = appt_date.strftime("%A, %B %d, %Y at %I:%M %p")
 
