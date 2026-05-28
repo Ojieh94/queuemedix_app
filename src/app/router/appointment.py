@@ -92,7 +92,7 @@ async def add_appointment(payload: AppointmentCreate, session: AsyncSession = De
 
 
 @apt_router.get('/appointments', status_code=status.HTTP_200_OK, response_model=List[AppointmentRead])
-async def get_appointments(status: Optional[AppointmentStatus], skip: int = 0, limit: int = 10, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+async def get_appointments(status: Optional[AppointmentStatus] = None, skip: int = 0, limit: int = 10, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
     # Only allow SUPER_ADMIN or ADMIN users
     if current_user.role != UserRoles.ADMIN:
