@@ -28,9 +28,11 @@ apt_router = APIRouter(
 
 
 @apt_router.post('/appointments/new_appointment', status_code=status.HTTP_201_CREATED, response_model=AppointmentRead)
-async def add_appointment(patient_uid: str, payload: AppointmentCreate, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+async def add_appointment(payload: AppointmentCreate, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
     """Please note, you can not edit an appointment after creating"""
+
+    patient_uid = current_user.patient.uid
 
     patient = await pat_service.get_patient(patient_uid, session)
 
