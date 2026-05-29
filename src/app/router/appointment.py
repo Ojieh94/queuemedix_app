@@ -247,7 +247,7 @@ async def delete_db_appointment(appointment_uid: str, session: AsyncSession = De
     await apt_service.delete_appointment(appointment_uid, session)
 
 #reschedule appointment
-@apt_router.put("/appointments/{appointment_uid}/reschedule")
+@apt_router.patch("/appointments/{appointment_uid}/reschedule")
 async def reschedule_appointment(
     appointment_uid: str,
     payload: RescheduleAppointment,
