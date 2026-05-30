@@ -494,6 +494,7 @@ class DataPlusMessage(BaseModel):
     data: MessageRead
 
 class AppointmentResponse(BaseModel):
+    uid: uuid.UUID
     appointment_note: str
     scheduled_time: datetime
     status: AppointmentStatus = AppointmentStatus.PENDING
