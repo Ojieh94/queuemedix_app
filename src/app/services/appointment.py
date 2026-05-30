@@ -252,6 +252,7 @@ async def reschedule_appointment(
     appointment.status = AppointmentStatus.RESCHEDULED
     appointment.rescheduled_from = old_time  #for current state tracking
 
+
     # Log the history
     history = RescheduleHistory(
         appointment_uid=appointment.uid,
