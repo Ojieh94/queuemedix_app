@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, status, HTTPException
 from src.app.core.dependencies import RoleChecker, get_current_user
 from sqlalchemy.ext.asyncio.session import AsyncSession
-from src.app.schemas import AppointmentCreate, AppointmentRead, DoctorAssign, AppointmentStatusUpdate, MedicalRecordCreate, RescheduleAppointment
+from src.app.schemas import AppointmentCreate, AppointmentRead, DoctorAssign, AppointmentStatusUpdate, MedicalRecordCreate, RescheduleAppointment, AppointmentResponse
 from src.app.models import Admin, Doctor, User, Appointment, AppointmentStatus, UserRoles, AdminType
 from src.app.services import appointment as apt_service, patients as pat_service, hospital as hp_service, department as dpt_service, medical_records as med_service
 from src.app.database.main import get_session
@@ -173,7 +173,7 @@ async def get_all_pending_appointments(
 
 
 
-@apt_router.get('/appointments/{appointment_uid}', status_code=status.HTTP_200_OK, response_model=Appointment)
+@apt_router.get('/appointments/{appointment_uid}', status_code=status.HTTP_200_OK, response_model=AppointmentResponse)
 async def get_appointment_by_id(appointment_uid: str, session: AsyncSession = Depends(get_session), current_user: User=Depends(get_current_user)):
 
     appointment = await apt_service.get_appointment_by_id(appointment_uid, session)

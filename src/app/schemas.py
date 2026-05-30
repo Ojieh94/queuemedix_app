@@ -161,6 +161,12 @@ class HospitalAppointmentStats(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class HospitalResponse(BaseModel):
+    hospital_name: str
+    full_address: str
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 ########## ........Patient Model........##########
 class PatientBase(BaseModel):
@@ -262,6 +268,17 @@ class DoctorRead(DoctorBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class DoctorResponse(BaseModel):
+    first_name: str
+    middle_name: Optional[str] = None
+    last_name: str
+    specialization: str
+    bio: Optional[str] = None
+    is_available: bool = True
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 
 ######### ........Admin Model...........#########
 class AdminBase(BaseModel):
@@ -350,6 +367,7 @@ class AppointmentRead(AppointmentBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+
 ######### ............Department Model.............###########
 class DepartmentCreate(BaseModel):
     name: str
@@ -365,6 +383,13 @@ class DepartmentRead(BaseModel):
    
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DepartmentResponse(BaseModel):
+    name: str
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 
 ######## ............Medical Record Model.........############
@@ -467,3 +492,15 @@ class UserReadMe(UserBase):
 class DataPlusMessage(BaseModel):
     message: str
     data: MessageRead
+
+class AppointmentResponse(BaseModel):
+    appointment_note: str
+    scheduled_time: datetime
+    status: AppointmentStatus = AppointmentStatus.PENDING
+    check_in_time: Optional[datetime] = None
+    completed_time: Optional[datetime] = None
+    doctor: DoctorResponse | None
+    hospital: HospitalResponse
+    department: DepartmentResponse
+
+    model_config = ConfigDict(from_attributes=True)
