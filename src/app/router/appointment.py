@@ -262,6 +262,8 @@ async def reschedule_appointment(
     
     old_time = appointment.scheduled_time
 
+    patient_name = f"{current_user.patient.first_name} {current_user.patient.last_name}"
+
     # Ensure scheduled_time is in the future
     if payload.new_time <= datetime.now(timezone.utc):
         raise HTTPException(
@@ -280,8 +282,10 @@ async def reschedule_appointment(
 
     new_appointment = await apt_service.reschedule_appointment(appointment_uid, payload, session, current_user)
 
+    new_appointment.updated_at = datetime.now(timezone.utc)
+
     #inform the patient through email
-    mails.appointment_rescheduled(new_appointment.patient.user.email, new_appointment.patient.full_name, new_appointment.hospital.hospital_name, old_time, payload.new_time)
+    mails.appointment_rescheduled(new_appointment.patient.user.email, patient_name, new_appointment.hospital.hospital_name, old_time, payload.new_time)
 
     return {
         "message": "Appointment rescheduled successfully",
