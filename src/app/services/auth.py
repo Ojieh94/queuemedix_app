@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from src.app.schemas import RegisterUser, RegisterAdminUser
-from src.app.models import User, Patient, Hospital, Doctor, Admin, AdminType, SignupLink
+from src.app.models import User, Patient, Hospital, Doctor, Admin, AdminType, SignupLink, Queue
 from src.app.core.utils import hash_password
 from datetime import date, datetime, timedelta, timezone
 
@@ -62,13 +62,31 @@ async def register_user(payload: RegisterUser, session: AsyncSession):
             license_number=f"PendingLicense-{new_user.uid}",
             phone_number=" ",
             registration_number=f"PendingReg-{new_user.uid}",
-            hospital_ceo=" "
+            hospital_ceo=" ",
+            cover_image=""
         )
+
     else:
         raise HTTPException(status_code=400, detail="Invalid role.")
 
     session.add(profile)
+
+    if new_user.role == "hospital":
+        await session.flush()
+
+        print(f"Hospital UUID: {profile.uid}")
+        print(f"Hospital Name: {profile.hospital_name}")
+
+        queue = Queue(
+            hospital_uid=profile.uid,
+            name="Main Queue",
+        )
+
+        session.add(queue)
+        print("Queue created:", queue)
+
     await session.commit()
+    print("Committed successfully")
     await session.refresh(new_user)
 
     return new_user
@@ -133,13 +151,31 @@ async def register_user_test(payload: RegisterUser, session: AsyncSession):
             license_number=f"PendingLicense-{new_user.uid}",
             phone_number=" ",
             registration_number=f"PendingReg-{new_user.uid}",
-            hospital_ceo=" "
+            hospital_ceo=" ",
+            cover_image=""
         )
     else:
         raise HTTPException(status_code=400, detail="Invalid role.")
 
     session.add(profile)
+
+
+    if new_user.role == "hospital":
+        await session.flush()
+
+        print(f"Hospital UUID: {profile.uid}")
+        print(f"Hospital Name: {profile.hospital_name}")
+
+        queue = Queue(
+            hospital_uid=profile.uid,
+            name="Main Queue",
+        )
+
+        session.add(queue)
+        print("Queue created:", queue)
+
     await session.commit()
+    print("Committed successfully")
     await session.refresh(new_user)
 
     return new_user
