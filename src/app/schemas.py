@@ -147,6 +147,7 @@ class HospitalRead(HospitalBase):
     is_verified: bool = False
     status: HospitalStatus = HospitalStatus.UNDER_REVIEW
     average_rating: float = 0.0
+    cover_image: str
 
     model_config = ConfigDict(from_attributes=True)
 

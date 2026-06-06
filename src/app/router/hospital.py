@@ -6,6 +6,10 @@ from src.app import schemas, models
 from src.app.services import hospital as hp_service, admins as ad_service, notification
 from src.app.core import errors
 from src.app.database.main import get_session
+from fastapi import UploadFile, File
+from src.app.services.upload_service import (
+    upload_cover_image,
+)
 
 hp_router = APIRouter(
     tags=['Hospitals']
@@ -198,3 +202,33 @@ async def assign_duty(admin_uid: str, payload: schemas.AssignAdminDuty, session:
     return {"message": "Duty has been assigned successfully"}
 
 
+@hp_router.patch(
+    "/cover_image",
+    response_model=schemas.HospitalRead,
+)
+async def update_cover_image(
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(
+        get_current_user
+    ),
+    session: AsyncSession = Depends(get_session),
+):
+    # validate image
+    if not file.content_type.startswith(
+        "image/"
+    ):
+        raise errors.FileUpload()
+
+    # upload image
+    image_url = (
+        await update_cover_image(file)
+    )
+
+    # update hospital cover image
+    current_user.hospital.cover_image = image_url
+
+    await session.commit()
+
+    await session.refresh(current_user)
+
+    return current_user

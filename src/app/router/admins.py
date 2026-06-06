@@ -2,11 +2,11 @@ from typing import List
 import uuid
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio.session import AsyncSession
-from src.app.models import Admin, AdminType, User, UserRoles
+from src.app.models import Admin, AdminType, User, UserRoles, AppointmentStatus
 from src.app.core.dependencies import AccessTokenBearer, RoleChecker, get_current_user
 from src.app.schemas import AdminProfileUpdate, AdminRead, DoctorAssign, VerifyHospital
 from src.app.services.notification import send_notification
-from src.app.services import admins as admin_service, appointment as appt_service, hospital as hp_service
+from src.app.services import admins as admin_service, appointment as appt_service, hospital as hp_service, queue
 from src.app.database.main import get_session
 from src.app.core import permissions
 from src.app.core import errors
@@ -146,9 +146,15 @@ async def assign_doctor(appointment_uid: str, payload: DoctorAssign, session: As
     
     # Assign doctor to the appointment
     appointment.doctor_uid = payload.doctor_uid
+    appointment.status = AppointmentStatus.IN_PROGRESS
+
+    # Create queue entry
+    await queue.create_queue_entry(appointment, session)
+
     await session.commit()
     await session.refresh(appointment)
 
+   
     #push notification to doctor
     await send_notification(session, doctor.user_uid, {
         "title": "Assigned Appointment",

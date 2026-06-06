@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select, or_
-from src.app.models import Patient
+from src.app.models import Patient, User
 from typing import Optional
 from src.app.schemas import PatientProfileUpdate
 
@@ -13,6 +13,15 @@ async def get_patient(patient_uid: str, session: AsyncSession):
     result = await session.execute(stmt)
 
     return result.scalar_one_or_none()
+
+async def get_patient_by_user_uid(user_uid: str, session: AsyncSession) -> Patient | None:
+    
+    stmt = select(Patient).where(Patient.user_uid == user_uid)
+
+    result = await session.execute(stmt)
+
+    return result.scalar_one_or_none()
+
 
 
 async def update_patient(payload: PatientProfileUpdate, patient_uid: str, session: AsyncSession):

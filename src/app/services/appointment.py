@@ -1,6 +1,8 @@
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
+from datetime import datetime, timezone, timedelta
+from sqlalchemy import update
 from typing import List, Optional
 from src.app.models import Appointment, AppointmentStatus, Doctor, User, RescheduleHistory, Hospital, Department, Patient
 from src.app.schemas import AppointmentCreate, AppointmentStatusUpdate, RescheduleAppointment
@@ -274,3 +276,34 @@ async def reschedule_appointment(
     })
     
     return appointment
+
+
+
+async def mark_missed_appointments(
+    session: AsyncSession,
+) -> int:
+
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=30)
+
+    stmt = (
+        update(Appointment)
+        .where(
+            Appointment.scheduled_time < cutoff,
+            Appointment.status.in_(
+                [
+                    AppointmentStatus.PENDING,
+                    AppointmentStatus.IN_PROGRESS,
+                    AppointmentStatus.RESCHEDULED
+                ]
+            ),
+        )
+        .values(
+            status=AppointmentStatus.MISSED
+        )
+    )
+
+    result = await session.execute(stmt)
+
+    await session.commit()
+
+    return result.rowcount or 0
