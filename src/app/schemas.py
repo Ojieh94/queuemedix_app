@@ -110,10 +110,10 @@ class HospitalProfileUpdate(BaseModel):
     phone_number: Optional[str] = None
     registration_number: Optional[str] = None
     ownership_type: Optional[HospitalType] = None
-    cover_image: str | None
+    cover_image: Optional[str] = None
     hospital_ceo: Optional[str] = None
 
-    @field_validator('hospital_name', 'full_address', 'about', 'state', 'license_number', 'phone_number', 'registration_number', 'hospital_ceo')
+    @field_validator('hospital_name', 'full_address', 'about', 'state', 'license_number', 'phone_number', 'registration_number', 'hospital_ceo', 'cover_image')
     def validate_non_empty_strings(cls, value):
         if value is None:
             return value
