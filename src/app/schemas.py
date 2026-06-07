@@ -71,6 +71,7 @@ class RegisterAdminUser(BaseModel):
 
 class UserRead(UserBase):
     uid: uuid.UUID
+    username: str
     role: UserRoles
     is_active: bool = False
     profile_picture: Optional[str] = None
@@ -476,6 +477,7 @@ class ConfirmPasswordReset(BaseModel):
 class UserReadMe(UserBase):
     uid: uuid.UUID
     role: UserRoles
+    username: str
     is_active: bool = False
     profile_picture: Optional[str]
     created_at: datetime
