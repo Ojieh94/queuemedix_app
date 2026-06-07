@@ -422,7 +422,7 @@ class MedicalRecordRead(BaseModel):
     hospital: HospitalResponse | None
     record_type: RecordType
     description: str
-    files: MedicalRecordFile | None
+    files: list[MedicalRecordFile] | None = None
     record_date: datetime
     created_at: datetime
     updated_at: datetime
