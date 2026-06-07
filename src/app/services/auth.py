@@ -5,13 +5,19 @@ from src.app.schemas import RegisterUser, RegisterAdminUser
 from src.app.models import User, Patient, Hospital, Doctor, Admin, AdminType, SignupLink, Queue
 from src.app.core.utils import hash_password
 from datetime import date, datetime, timedelta, timezone
+import uuid
+
+def generate_username(role: str) -> str:
+    unique_part = uuid.uuid4().hex[:6].upper()
+
+    return f"{role[:3].upper()}-{unique_part}"
 
 
 async def register_user(payload: RegisterUser, session: AsyncSession):
 
     model_dict = payload.model_dump()
     # Create base user
-    new_user = User(**model_dict)
+    new_user = User(**model_dict, username=generate_username(payload.role.value))
 
     new_user.hashed_password = hash_password(payload.password)
 
