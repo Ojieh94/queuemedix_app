@@ -404,6 +404,17 @@ class MedicalRecordUpdate(BaseModel):
     record_date: Optional[datetime] = None
 
 
+class MedicalRecordFile(BaseModel):
+    uid: uuid.UUID
+    record_uid: uuid.UUID
+    file_name: str
+    file_url: str  # S3/GCP/local storage path
+    file_type: str  # e.g. pdf, jpg, png, docx
+    uploaded_at: datetime 
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class MedicalRecordRead(BaseModel):
     uid: uuid.UUID
     patient: PatientRead
@@ -411,6 +422,7 @@ class MedicalRecordRead(BaseModel):
     hospital: HospitalResponse | None
     record_type: RecordType
     description: str
+    files: MedicalRecordFile | None
     record_date: datetime
     created_at: datetime
     updated_at: datetime
