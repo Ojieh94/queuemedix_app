@@ -19,7 +19,6 @@ class EmailStrLower(EmailStr):
 
 
 class UserBase(BaseModel):
-    username: str
     email: EmailStrLower
     role: UserRoles = UserRoles.PATIENT
 
