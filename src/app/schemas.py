@@ -227,12 +227,8 @@ class PatientProfileUpdate(BaseModel):
     emergency_contact_phone_number: Optional[str] = None
 
 
-class PatientRead(BaseModel):
+class PatientRead(PatientBase):
     uid: uuid.UUID
-    first_name: str
-    last_name: str
-    state_of_residence: str
-
 
     model_config = ConfigDict(from_attributes=True)
 
