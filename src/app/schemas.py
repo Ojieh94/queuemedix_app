@@ -89,6 +89,7 @@ class HospitalBase(BaseModel):
     website: Optional[str] = None
     license_number: str
     phone_number: str
+    cover_image: str
     registration_number: str
     ownership_type: HospitalType = HospitalType.PRIVATE
     hospital_ceo: str
