@@ -69,7 +69,9 @@ class RecordType(str, Enum):
     DIAGNOSIS = "diagnosis"
     LAB_RESULT = "lab_result"
     PRESCRIPTION = "prescription"
-    NOTE = "note"
+    CLINICAL_NOTE = "clinical_note"
+    IMAGING_REPORT = "imaging_report"
+    DISCHARGE_SUMMARY = "discharge_summary"
 
 class QueueEntryStatus(str, Enum):
     WAITING = "waiting"

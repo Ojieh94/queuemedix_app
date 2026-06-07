@@ -354,7 +354,7 @@ def can_access_medical_record_role(current_user: User):
     This should run BEFORE fetching any appointment.
     """
 
-    if current_user.role not in [UserRoles.DOCTOR, UserRoles.ADMIN]:
+    if current_user.role not in [UserRoles.DOCTOR, UserRoles.ADMIN, UserRoles.HOSPITAL]:
         raise errors.NotAuthorized()
 
     if (
@@ -384,6 +384,10 @@ def can_create_medical_record_for_appointment(current_user: User, appointment: A
     ):
         if current_user.admin.hospital_uid != appointment.hospital_uid:
             raise errors.NotAuthorized()
+        
+    if current_user.role == UserRoles.HOSPITAL:
+        if current_user.hospital_uid != appointment.hospital_uid:
+            raise errors.NotAuthorized()
 
     # Department admin can only create for their department
     if (
@@ -406,7 +410,7 @@ def get_hospital_medical_record_access(current_user: User, hospital_id: str):
     if current_user.role != UserRoles.ADMIN and current_user.admin.admin_type != AdminType.HOSPITAL_ADMIN:
         raise errors.NotAuthorized()
 
-    if current_user.admin.hospital_uid != hospital_id:
+    if current_user.role != UserRoles.HOSPITAL and current_user.admin.hospital_uid != hospital_id:
         raise errors.NotAuthorized()
 
     return True
@@ -420,30 +424,52 @@ def can_access_medical_records(current_user: User):
         if current_user.admin.admin_type == AdminType.HOSPITAL_ADMIN:
             return True
         raise errors.NotAuthorized()
+    
+    if current_user.role == UserRoles.HOSPITAL:
+        return True
+    raise errors.NotAuthorized()
 
     raise errors.RoleCheckAccess()
 
 
 
-def can_access_patient_medical_records(current_user: User, patient_id: str, hospital_id: str):
-    """
-    Permission check to ensure the user can access a patient's medical records.
-    """
+def can_access_patient_medical_records(
+    current_user: User,
+    patient_id: str,
+    hospital_id: str,
+):
+    # print("Current Hospital UID:", current_user.hospital.uid)
+    # print("Hospital ID:", hospital_id)
+    # print(type(current_user.hospital.uid))
+    # print(type(hospital_id))
+
     if current_user.role == UserRoles.ADMIN:
         if current_user.admin.admin_type == AdminType.SUPER_ADMIN:
-            raise errors.RoleCheckAccess()
+            return True
+
         if current_user.admin.hospital_uid != hospital_id:
             raise errors.NotAuthorized()
+
+        return True
 
     if current_user.role == UserRoles.PATIENT:
         if current_user.patient.uid != patient_id:
             raise errors.NotAuthorized()
 
+        return True
+
     if current_user.role == UserRoles.DOCTOR:
         if current_user.doctor.hospital_uid != hospital_id:
             raise errors.NotAuthorized()
+        return True
 
-    return True
+    if current_user.role == UserRoles.HOSPITAL:
+        if current_user.hospital.uid != hospital_id:
+            raise errors.NotAuthorized()
+
+        return True
+
+    raise errors.NotAuthorized()
 
 def can_update_medical_record(current_user: User, medical_record: MedicalRecord):
     """
@@ -454,6 +480,9 @@ def can_update_medical_record(current_user: User, medical_record: MedicalRecord)
         if current_user.admin.admin_type == AdminType.SUPER_ADMIN:
             raise errors.RoleCheckAccess()
         if current_user.admin.hospital_uid != medical_record.hospital_uid:
+            raise errors.NotAuthorized()
+    if current_user.role == UserRoles.HOSPITAL:
+        if current_user.hospital.uid != medical_record.hospital_uid:
             raise errors.NotAuthorized()
         
     if current_user.role == UserRoles.DOCTOR:

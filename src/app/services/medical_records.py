@@ -3,7 +3,7 @@ from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
-from src.app.models import MedicalRecord, Patient, Doctor, Hospital
+from src.app.models import MedicalRecord, Patient, Doctor, Hospital, MedicalRecordFile
 from src.app.schemas import MedicalRecordCreate, MedicalRecordUpdate
 
 
@@ -42,7 +42,8 @@ async def get_medical_record_by_patient(patient_id: str, hospital_id: str, offse
     ).options(
         selectinload(MedicalRecord.patient).selectinload(Patient.user),
         selectinload(MedicalRecord.doctor).selectinload(Doctor.user),
-        selectinload(MedicalRecord.hospital).selectinload(Hospital.user)
+        selectinload(MedicalRecord.hospital).selectinload(Hospital.user),
+        selectinload(MedicalRecord.files).selectinload(MedicalRecordFile.medical_record)
     ).offset(offset).limit(limit)
 
     result = await session.execute(stmt)

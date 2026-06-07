@@ -1,3 +1,4 @@
+import uuid
 from src.app.core import permissions
 from email import errors
 from src.app.schemas import MedicalRecordCreate
@@ -14,7 +15,7 @@ from typing import List, Optional
 from datetime import datetime
 from src.app.core.dependencies import get_current_user
 from src.app.database.main import get_session
-from src.app.schemas import MedicalRecordUpdate
+from src.app.schemas import MedicalRecordUpdate, MedicalRecordRead
 from src.app.services import medical_records as med_service, appointment as apt_service
 from src.app.core import errors
 
@@ -85,10 +86,10 @@ async def get_medical_record(
 
 
 # Get patient medical records
-@med_router.get("/medical_records/{patient_id}", status_code=status.HTTP_200_OK, response_model=MedicalRecord)
+@med_router.get("/medical_records/{patient_id}/records", status_code=status.HTTP_200_OK, response_model=List[MedicalRecordRead])
 async def get_patient_medical_records(
-    patient_id: str,
-    hospital_id: str,
+    patient_id: uuid.UUID,
+    hospital_id: uuid.UUID,
     offset: int = 0,
     limit: int = 10,
     session: AsyncSession = Depends(get_session),
@@ -97,9 +98,9 @@ async def get_patient_medical_records(
     # Role check - only hospital admins, department admins, doctors and patients can access
     permissions.can_access_patient_medical_records(current_user, patient_id, hospital_id)
     
-    record = await med_service.get_medical_record_by_patient(patient_id, hospital_id, offset, limit, session)
+    records = await med_service.get_medical_record_by_patient(patient_id, hospital_id, offset, limit, session)
 
-    return record
+    return records
 
 
 @med_router.put("/medical_records/{record_id}", status_code=status.HTTP_200_OK, response_model=MedicalRecord)
