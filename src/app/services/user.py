@@ -1,8 +1,8 @@
 from sqlalchemy import exists
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlmodel import select
-from src.app.models import User
-
+from src.app.models import User, Hospital, Doctor
 
 
 async def get_username(username: str, session: AsyncSession):
@@ -12,12 +12,27 @@ async def get_username(username: str, session: AsyncSession):
 
     return result.scalar_one_or_none()
 
+
 async def get_user_email(email: str, session: AsyncSession):
 
-    stmt = select(User).where(User.email == email)
+    stmt = (
+        select(User)
+        .where(User.email == email)
+        .options(
+            selectinload(User.admin),
+            selectinload(User.patient),
+            selectinload(User.hospital).selectinload(Hospital.user),
+            selectinload(User.doctor).selectinload(Doctor.user),
+            selectinload(User.doctor).selectinload(Doctor.department),
+            selectinload(User.doctor)
+            .selectinload(Doctor.hospital)
+            .selectinload(Hospital.user),
+        )
+    )
     result = await session.execute(stmt)
 
     return result.scalar_one_or_none()
+
 
 async def get_login_data(username: str, email: str, session: AsyncSession):
 
@@ -30,14 +45,15 @@ async def get_login_data(username: str, email: str, session: AsyncSession):
         return user
     return None
 
-async def update_user_info(user: User, user_data: dict, session: AsyncSession):
-        
-        for k, v in user_data.items():
-            setattr(user, k, v)
 
-        await session.commit()
-        
-        return user
+async def update_user_info(user: User, user_data: dict, session: AsyncSession):
+
+    for k, v in user_data.items():
+        setattr(user, k, v)
+
+    await session.commit()
+
+    return user
 
 
 async def get_all_users(skip: int, limit: int, session: AsyncSession):
@@ -76,5 +92,3 @@ async def username_exists(username: str, session: AsyncSession) -> bool:
     stmt = select(exists().where(User.username == username))
     result = await session.execute(stmt)
     return result.scalar()  # True or False
-
-
