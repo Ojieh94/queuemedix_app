@@ -213,7 +213,7 @@ async def register_admin(payload: RegisterAdminUser, token: str, session: AsyncS
     model_dict = payload.model_dump()
 
     # Create base user
-    new_user = User(**model_dict)
+    new_user = User(**model_dict, username=generate_username(payload.role.value))
 
     new_user.hashed_password = hash_password(payload.password)
     new_user.is_active = True
@@ -245,7 +245,7 @@ async def register_super_admin(payload: RegisterAdminUser, session: AsyncSession
     model_dict = payload.model_dump()
 
     # Create base user
-    new_user = User(**model_dict)
+    new_user = User(**model_dict, username=generate_username(payload.role.value))
 
     new_user.hashed_password = hash_password(payload.password)
 

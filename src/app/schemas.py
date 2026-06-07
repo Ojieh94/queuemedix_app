@@ -47,7 +47,6 @@ class RegisterUser(UserBase):
 
 
 class RegisterAdminUser(BaseModel):
-    username: str
     email: EmailStrLower
     role: UserRoles = UserRoles.ADMIN
     password: str
