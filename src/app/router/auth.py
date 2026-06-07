@@ -49,9 +49,9 @@ async def register_user(payload: RegisterUser, session: AsyncSession = Depends(g
     """
     email = payload.email
 
-    existing_username = await user_service.username_exists(payload.username, session)
-    if existing_username:
-        raise errors.UsernameAlreadyExists()
+    # existing_username = await user_service.username_exists(payload.username, session)
+    # if existing_username:
+    #     raise errors.UsernameAlreadyExists()
 
     existing_user = await user_service.get_user_email(payload.email, session)
 
@@ -83,9 +83,9 @@ async def register_user_test(payload: RegisterUser, session: AsyncSession = Depe
     
     Roles: "doctor", "hospital", "patient"
     """
-    existing_username = await user_service.username_exists(payload.username, session)
-    if existing_username:
-        raise errors.UsernameAlreadyExists()
+    # existing_username = await user_service.username_exists(payload.username, session)
+    # if existing_username:
+    #     raise errors.UsernameAlreadyExists()
 
     existing_user = await user_service.get_user_email(payload.email, session)
 
@@ -133,10 +133,6 @@ async def admin_signup(payload: RegisterAdminUser, token: str, session: AsyncSes
     """
     email = payload.email
 
-    existing_username = await user_service.username_exists(payload.username, session)
-    if existing_username:
-        raise errors.UsernameAlreadyExists()
-
     existing_user = await user_service.get_user_email(payload.email, session)
 
     if existing_user:
@@ -156,9 +152,6 @@ async def super_admin_signup(payload: RegisterAdminUser, session: AsyncSession =
     
     email = payload.email
 
-    existing_username = await user_service.username_exists(payload.username, session)
-    if existing_username:
-        raise errors.UsernameAlreadyExists()
 
     existing_user = await user_service.get_user_email(payload.email, session)
 
