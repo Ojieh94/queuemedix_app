@@ -4,6 +4,27 @@ from datetime import datetime, date
 from typing import Optional, List
 from src.app.models import AdminTypeUpdate, UserRoles, HospitalType, AdminType, AppointmentStatus, RecordType, DoctorStatus, HospitalStatus
 
+######### ............Department Model.............###########
+class DepartmentCreate(BaseModel):
+    name: str
+
+
+class DepartmentUpdate(BaseModel):
+    name: Optional[str] = None
+
+class DepartmentRead(BaseModel):
+    uid: uuid.UUID
+    name: str
+   
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DepartmentResponse(BaseModel):
+    name: str
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 class EmailStrLower(EmailStr):
     @classmethod
@@ -144,7 +165,6 @@ class HospitalRatingCreate(BaseModel):
 
 class HospitalRead(HospitalBase):
     uid: uuid.UUID
-    user: "UserRead"
     is_verified: bool = False
     status: HospitalStatus = HospitalStatus.UNDER_REVIEW
     average_rating: float = 0.0
@@ -207,9 +227,12 @@ class PatientProfileUpdate(BaseModel):
     emergency_contact_phone_number: Optional[str] = None
 
 
-class PatientRead(PatientBase):
+class PatientRead(BaseModel):
     uid: uuid.UUID
-    user: "UserRead"
+    first_name: str
+    last_name: str
+    state_of_residence: str
+
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -264,9 +287,8 @@ class DoctorAssign(BaseModel):
 class DoctorRead(DoctorBase):
     uid: uuid.UUID
     status: DoctorStatus = DoctorStatus.UNDER_REVIEW
-    user: "UserRead"
-    hospital: Optional["HospitalRead"] = None
-    department: Optional["DepartmentRead"] = None
+    hospital: HospitalResponse | None
+    department: DepartmentResponse | None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -311,9 +333,8 @@ class AssignAdminDuty(BaseModel):
 
 class AdminRead(AdminBase):
     uid: uuid.UUID
-    user: "UserRead"
-    hospital: Optional["HospitalRead"] = None
-    department: Optional["DepartmentRead"] = None
+    hospital: HospitalResponse = None
+    department: DepartmentResponse | None
     notes: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -355,10 +376,10 @@ class RescheduleAppointment(BaseModel):
 
 class AppointmentRead(AppointmentBase):
     uid: uuid.UUID
-    patient: "PatientRead"
-    doctor: Optional["DoctorRead"] = None
-    hospital: "HospitalRead"
-    department: "DepartmentRead"
+    patient: PatientRead | None
+    doctor: DoctorResponse | None
+    hospital: HospitalResponse | None
+    department: DepartmentResponse | None
     status: AppointmentStatus = AppointmentStatus.PENDING
     rescheduled_from: Optional[datetime] = None
     check_in_time: Optional[datetime] = None
@@ -368,29 +389,6 @@ class AppointmentRead(AppointmentBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-
-
-######### ............Department Model.............###########
-class DepartmentCreate(BaseModel):
-    name: str
-
-
-class DepartmentUpdate(BaseModel):
-    name: Optional[str] = None
-
-
-class DepartmentRead(BaseModel):
-    uid: uuid.UUID
-    name: str
-   
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class DepartmentResponse(BaseModel):
-    name: str
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 
@@ -412,9 +410,9 @@ class MedicalRecordUpdate(BaseModel):
 
 class MedicalRecordRead(BaseModel):
     uid: uuid.UUID
-    patient: "PatientRead"
-    doctor: "DoctorRead"
-    hospital: Optional["HospitalRead"] = None
+    patient: PatientRead
+    doctor: DoctorResponse
+    hospital: HospitalResponse | None
     record_type: RecordType
     description: str
     record_date: datetime
@@ -441,8 +439,8 @@ class MessageMarkAsRead(BaseModel):
 
 class MessageRead(BaseModel):
     uid: uuid.UUID
-    sender: "UserRead"
-    receiver: "UserRead"
+    sender: UserRead
+    receiver: UserRead
     content: str
     timestamp: datetime
     is_read: bool = False
@@ -505,7 +503,7 @@ class AppointmentResponse(BaseModel):
     completed_time: Optional[datetime] = None
     doctor: DoctorResponse | None
     hospital: HospitalResponse
-    department: DepartmentResponse
+    department: DepartmentResponse | None
     created_at: datetime
     updated_at: datetime
 

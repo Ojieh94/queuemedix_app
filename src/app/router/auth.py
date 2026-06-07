@@ -243,6 +243,9 @@ async def login(payload: LoginData, session: AsyncSession = Depends(get_session)
 @auth_router.get('/auth/me', status_code=status.HTTP_200_OK, response_model=schemas.UserReadMe)
 async def current_user(me: User=Depends(get_current_user)):
 
+    # print(f"DOCTOR=============================: {me.doctor}")
+    # print(f"DOCTOR HOSPITAL++++++++++++++++++++++++++: {me.doctor.hospital}")
+    # print(f"HOSPITAL USER=============================: {me.doctor.hospital.user}")
     """This endpoint returns the currently authenticated user's info"""
     return me
 
