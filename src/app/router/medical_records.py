@@ -89,7 +89,7 @@ async def get_medical_record(
 @med_router.get("/medical_records/{patient_id}/records", status_code=status.HTTP_200_OK, response_model=List[MedicalRecordRead])
 async def get_patient_medical_records(
     patient_id: uuid.UUID,
-    hospital_id: uuid.UUID,
+    hospital_id: uuid.UUID | None = None,
     offset: int = 0,
     limit: int = 10,
     session: AsyncSession = Depends(get_session),

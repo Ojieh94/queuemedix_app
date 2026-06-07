@@ -34,7 +34,7 @@ async def get_medical_record_by_id(record_id: str, session: AsyncSession) -> Opt
     return result.scalar_one_or_none()
 
 
-async def get_medical_record_by_patient(patient_id: str, hospital_id: str, offset: int, limit: int, session: AsyncSession) -> Optional[MedicalRecord]:
+async def get_medical_record_by_patient(patient_id: str, hospital_id: str | None, offset: int, limit: int, session: AsyncSession) -> Optional[MedicalRecord]:
     """Retrieve medical records for a specific patient in a hospital with pagination."""
     stmt = select(MedicalRecord).where(
         MedicalRecord.patient_uid == patient_id,
