@@ -2,8 +2,8 @@ from typing import List
 import uuid
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio.session import AsyncSession
-from src.app.models import Admin, AdminType, User, UserRoles, AppointmentStatus
-from src.app.core.dependencies import AccessTokenBearer, RoleChecker, get_current_user
+from src.app.models import  AdminType, User, UserRoles, AppointmentStatus
+from src.app.core.dependencies import AccessTokenBearer, get_current_user
 from src.app.schemas import AdminProfileUpdate, AdminRead, DoctorAssign, VerifyHospital
 from src.app.services.notification import send_notification
 from src.app.services import admins as admin_service, appointment as appt_service, hospital as hp_service, queue
@@ -123,7 +123,7 @@ async def delete_admin(
 
 
 
-@admin_router.patch('/appointments/{appointment_uid}/admin', status_code=status.HTTP_202_ACCEPTED)
+@admin_router.patch('/appointments/{appointment_uid}/assign-doctor', status_code=status.HTTP_202_ACCEPTED)
 async def assign_doctor(appointment_uid: str, payload: DoctorAssign, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
     
     appointment = await appt_service.get_appointment_by_id(appointment_uid, session)
