@@ -21,6 +21,7 @@ class DepartmentRead(BaseModel):
 
 
 class DepartmentResponse(BaseModel):
+    uid: uuid.UUID
     name: str
 
     model_config = ConfigDict(from_attributes=True)
@@ -290,6 +291,7 @@ class DoctorRead(DoctorBase):
     model_config = ConfigDict(from_attributes=True)
 
 class DoctorResponse(BaseModel):
+    uid: uuid.UUID
     first_name: str
     middle_name: Optional[str] = None
     last_name: str
@@ -511,7 +513,9 @@ class AppointmentResponse(BaseModel):
     check_in_time: Optional[datetime] = None
     completed_time: Optional[datetime] = None
     doctor: DoctorResponse | None
+    patient: PatientRead | None
     hospital: HospitalResponse
+    rescheduled_from: Optional[datetime] = None
     department: DepartmentResponse | None
     created_at: datetime
     updated_at: datetime
