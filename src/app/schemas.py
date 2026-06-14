@@ -184,6 +184,7 @@ class HospitalAppointmentStats(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class HospitalResponse(BaseModel):
+    uid: uuid.UUID
     hospital_name: str
     full_address: str
 
