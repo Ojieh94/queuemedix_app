@@ -213,7 +213,7 @@ async def cancel_appointment(appointment_uid: str, session: AsyncSession = Depen
 
 
 #set appointment status
-@apt_router.put('/appointments/{appointment_uid}/appointment_status', status_code=status.HTTP_200_OK)
+@apt_router.put('/appointments/status', status_code=status.HTTP_200_OK)
 async def update_appointment_status(appointment_uid: str, new_status: AppointmentStatusUpdate, session: AsyncSession = Depends(get_session), current_user: User=Depends(get_current_user)):
 
     appointment = await apt_service.get_appointment_by_id(appointment_uid, session)
