@@ -123,7 +123,7 @@ async def delete_admin(
 
 
 
-@admin_router.patch('/appointments/{appointment_uid}/assign-doctor', status_code=status.HTTP_202_ACCEPTED)
+@admin_router.patch('/appointments/assign-doctor', status_code=status.HTTP_202_ACCEPTED)
 async def assign_doctor(appointment_uid: str, payload: DoctorAssign, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
     
     appointment = await appt_service.get_appointment_by_id(appointment_uid, session)
