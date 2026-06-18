@@ -279,7 +279,7 @@ class DoctorProfileUpdate(BaseModel):
 
 
 class DoctorAssign(BaseModel):
-    doctor_uid: str
+    doctor_uid: uuid.UUID
 
 
 class DoctorRead(DoctorBase):
