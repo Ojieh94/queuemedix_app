@@ -294,6 +294,7 @@ class DoctorRead(DoctorBase):
     status: DoctorStatus = DoctorStatus.UNDER_REVIEW
     hospital: HospitalResponse | None
     department: DepartmentResponse | None
+    user: UserProfile | None
 
     model_config = ConfigDict(from_attributes=True)
 
