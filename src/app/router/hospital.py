@@ -78,7 +78,7 @@ async def get_hospitals_by_location(
 #
 #response_model=List[schemas.HospitalDoctors]
 
-@hp_router.get('/hospitals/doctors', status_code=status.HTTP_200_OK)
+@hp_router.get('/hospitals/doctors', status_code=status.HTTP_200_OK, response_model=List[schemas.DoctorRead])
 async def view_hospital_doctors(hospital_uid: str, availability: bool | None = None, session: AsyncSession = Depends(get_session), current_user: models.User = Depends(get_current_user)):
 
     hospital = await hp_service.get_single_hospital(hospital_uid, session)
