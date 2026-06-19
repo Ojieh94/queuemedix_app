@@ -102,6 +102,11 @@ class UserRead(UserBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class UserProfile(BaseModel):
+    uid: uuid.UUID
+    profile_picture: Optional[str] = None
+
+
 
 ################# ...........Hospital Model.............#########
 class HospitalBase(BaseModel):
@@ -188,6 +193,7 @@ class HospitalResponse(BaseModel):
     uid: uuid.UUID
     hospital_name: str
     full_address: str
+    user: UserProfile | None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -231,6 +237,7 @@ class PatientProfileUpdate(BaseModel):
 
 class PatientRead(PatientBase):
     uid: uuid.UUID
+    user: UserProfile | None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -298,6 +305,7 @@ class DoctorResponse(BaseModel):
     specialization: str
     bio: Optional[str] = None
     is_available: bool = True
+    user: UserProfile | None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -335,6 +343,7 @@ class AdminRead(AdminBase):
     hospital: HospitalResponse = None
     department: DepartmentResponse | None
     notes: Optional[str] = None
+    user: UserProfile | None
 
     model_config = ConfigDict(from_attributes=True)
 
