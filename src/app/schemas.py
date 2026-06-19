@@ -256,6 +256,7 @@ class DoctorBase(BaseModel):
     hospital_uid: Optional[uuid.UUID] = None
     department_uid: Optional[uuid.UUID] = None
     license_number: str
+    years_of_experience: Optional[int] = None
     specialization: str
     qualification: str
     bio: Optional[str] = None
