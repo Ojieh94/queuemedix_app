@@ -306,6 +306,7 @@ class DoctorResponse(BaseModel):
     bio: Optional[str] = None
     is_available: bool = True
     user: UserProfile | None
+    department: DepartmentResponse | None
 
     model_config = ConfigDict(from_attributes=True)
 
