@@ -148,7 +148,7 @@ async def update_doctor_status(doctor_id: str, status: DoctorStatus, session: As
     return approved_doctor
 
 
-@doctor_router.patch("/availability", status_code=status.HTTP_202_ACCEPTED, response_model=DoctorRead)
+@doctor_router.patch("/availability", status_code=status.HTTP_202_ACCEPTED)
 async def change_doctor_availability(doctor_id: str, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
     """Protected endpoint for hospital admins, department admins and doctors to change doctor's availability"""
@@ -180,9 +180,9 @@ async def change_doctor_availability(doctor_id: str, session: AsyncSession = Dep
         elif current_user.doctor.uid != doctor_to_update.uid:
             raise errors.NotAuthorized()
     
-    doctor_to_update = await doctor_service.change_doctor_availability(doctor_id=doctor_id, session=session)
+    await doctor_service.change_doctor_availability(doctor_id=doctor_id, session=session)
 
-    return doctor_to_update
+    return {"message": "Availabilty updated successfully"}
     
     
 
