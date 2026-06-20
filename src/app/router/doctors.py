@@ -148,13 +148,13 @@ async def update_doctor_status(doctor_id: str, status: DoctorStatus, session: As
     return approved_doctor
 
 
-@doctor_router.patch("/{doctor_id}/availability", status_code=status.HTTP_202_ACCEPTED, response_model=DoctorRead)
+@doctor_router.patch("/availability", status_code=status.HTTP_202_ACCEPTED, response_model=DoctorRead)
 async def change_doctor_availability(doctor_id: str, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
     """Protected endpoint for hospital admins, department admins and doctors to change doctor's availability"""
 
-    if current_user.role not in [UserRoles.ADMIN, UserRoles.DOCTOR]:
-        raise errors.RoleCheckAccess()
+    # if current_user.role not in [UserRoles.ADMIN, UserRoles.HOSPITAL, UserRoles.DOCTOR]:
+    #     raise errors.RoleCheckAccess()
     
     doctor_to_update = await doctor_service.get_doctor(doctor_id=doctor_id, session=session)
 
@@ -169,9 +169,16 @@ async def change_doctor_availability(doctor_id: str, session: AsyncSession = Dep
             if doctor_to_update.hospital_uid != current_user.admin.hospital_uid:
                 raise errors.NotAuthorized()
         
+        elif current_user.role == UserRoles.HOSPITAL:
+            if doctor_to_update.hospital_uid != current_user.hospital.uid:
+                raise errors.NotAuthorized()
+        
         elif current_user.admin.admin_type == AdminType.DEPARTMENT_ADMIN:
             if doctor_to_update.department_uid != current_user.admin.department_uid:
                 raise errors.NotAuthorized()
+
+        elif current_user.doctor.uid != doctor_to_update.uid:
+            raise errors.NotAuthorized()
     
     doctor_to_update = await doctor_service.change_doctor_availability(doctor_id=doctor_id, session=session)
 
