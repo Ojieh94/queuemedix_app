@@ -105,6 +105,9 @@ async def change_doctor_availability(doctor_id: str, session: AsyncSession):
 
    if doctor is not None:
       doctor.is_available = not doctor.is_available
+
+      await session.commit()
+      await session.refresh(doctor)
    
    return doctor
    
