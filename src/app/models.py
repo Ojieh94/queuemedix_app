@@ -1,6 +1,7 @@
 import sqlalchemy.dialects.postgresql as pg
 import uuid
 from sqlmodel import SQLModel, Field, Relationship, ForeignKey, Column
+from sqlalchemy.orm import Mapped
 from sqlalchemy import Integer, String, DateTime, Enum as pgEnum, Text
 from datetime import datetime, timezone, date
 from enum import Enum
@@ -9,7 +10,7 @@ from typing import Optional, List
 
 class UserRoles(str, Enum):
     ADMIN = "admin"
-    DOCTOR = "doctor"
+    PRACTITIONER = "practitioner"
     HOSPITAL = "hospital"
     PATIENT = "patient"
 
@@ -45,16 +46,18 @@ class ViewAppointmentStatus(str, Enum):
     ALL = "all"
 
 
-class DoctorStatus(str, Enum):
+class PractitionerStatus(str, Enum):
     UNDER_REVIEW = "under_review"
     APPROVED = "approved"
     REJECTED = "rejected"
+    SUSPENDED = "suspended"
 
 
 class HospitalStatus(str, Enum):
     UNDER_REVIEW = "under_review"
     APPROVED = "approved"
     REJECTED = "rejected"
+    SUSPENDED = "suspended"
 
 # Enum for Hospital Ownership type
 
@@ -81,9 +84,16 @@ class QueueEntryStatus(str, Enum):
     SKIPPED = "skipped"
     LEFT = "left"
 
+class PractitionerType(str, Enum):
+    DOCTOR = "doctor"
+    NURSE = "nurse"
+    PHARMACIST = "pharmacist"
+    LAB_SCIENTIST = "lab_scientist"
+    PHYSIOTHERAPIST = "physiotherapist"
+
 
 class User(SQLModel, table=True):
-    __tablename__ = "users"
+    __tablename__ = "users" # type: ignore
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), nullable=False, primary_key=True))
@@ -115,13 +125,13 @@ class User(SQLModel, table=True):
         back_populates="sender", sa_relationship_kwargs={"foreign_keys": "[Message.sender_uid]"})
     received_messages: List["Message"] = Relationship(
         back_populates="receiver", sa_relationship_kwargs={"foreign_keys": "[Message.receiver_uid]"})
-    hospital: Optional["Hospital"] = Relationship(
+    hospital: Mapped["Hospital"] | None = Relationship(
         back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
     admin: Optional["Admin"] = Relationship(
         back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
     patient: Optional["Patient"] = Relationship(
         back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
-    doctor: Optional["Doctor"] = Relationship(
+    practitioner: Mapped["Practitioner"] | None = Relationship(
         back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
     notifications: List["Notification"] = Relationship(
         back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
@@ -132,7 +142,7 @@ class User(SQLModel, table=True):
 
 
 class Hospital(SQLModel, table=True):
-    __tablename__ = "hospitals"
+    __tablename__ = "hospitals" #type: ignore
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), nullable=False, primary_key=True))
@@ -164,9 +174,9 @@ class Hospital(SQLModel, table=True):
         return f"<Hospital uid={self.uid}, hospital_name={self.hospital_name}>"
 
     # Relationship
-    user: "User" = Relationship(
+    user: Mapped["User"] = Relationship(
         back_populates="hospital", sa_relationship_kwargs={"lazy": "selectin"})
-    doctor: List["Doctor"] = Relationship(back_populates="hospital", sa_relationship_kwargs={
+    practitioner: List["Practitioner"] = Relationship(back_populates="hospital", sa_relationship_kwargs={
                                           "lazy": "selectin"}, passive_deletes=True)
     admin: List["Admin"] = Relationship(back_populates="hospital", sa_relationship_kwargs={
                                         "lazy": "selectin"}, passive_deletes=True)
@@ -185,7 +195,7 @@ class Hospital(SQLModel, table=True):
 
 # Patient Model
 class Patient(SQLModel, table=True):
-    __tablename__ = "patients"
+    __tablename__ = "patients" #type: ignore
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), nullable=False, primary_key=True))
@@ -221,7 +231,7 @@ class Patient(SQLModel, table=True):
 
 # Hospital Ratings Model
 class HospitalRating(SQLModel, table=True):
-    __tablename__ = "hospital_ratings"
+    __tablename__ = "hospital_ratings" #type: ignore
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), nullable=False, primary_key=True))
@@ -240,9 +250,9 @@ class HospitalRating(SQLModel, table=True):
     hospital: "Hospital" = Relationship(back_populates="ratings", sa_relationship_kwargs={"lazy": "selectin"})
     user: "User" = Relationship(back_populates="ratings", sa_relationship_kwargs={"lazy": "selectin"})
 
-# Doctor Model
-class Doctor(SQLModel, table=True):
-    __tablename__ = "doctors"
+# Practitioner Model
+class Practitioner(SQLModel, table=True):
+    __tablename__ = "practitioners" #type: ignore
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), nullable=False, primary_key=True))
@@ -255,6 +265,7 @@ class Doctor(SQLModel, table=True):
     country: str = Field(default=None)
     state_of_residence: str = Field(default=None)
     home_address: str = Field(default=None)
+    practitioner_type: PractitionerType = Field(default=PractitionerType.DOCTOR, sa_column=Column(pgEnum(PractitionerType, values_callable=lambda enum: [e.value for e in enum], name="practitioner_type"), nullable=False))
     hospital_uid: Optional[uuid.UUID] = Field(default=None, sa_column=Column(pg.UUID(
         as_uuid=True), ForeignKey("hospitals.uid", ondelete="CASCADE"), nullable=True, index=True))
     department_uid: Optional[uuid.UUID] = Field(default=None, sa_column=Column(pg.UUID(
@@ -264,46 +275,46 @@ class Doctor(SQLModel, table=True):
     specialization: str = Field(default=None)
     qualification: str = Field(default=None)
     bio: Optional[str] = Field(default=None)
-    status: DoctorStatus = Field(default=DoctorStatus.UNDER_REVIEW, sa_column=Column(
-        pgEnum(DoctorStatus, values_callable=lambda enum: [e.value for e in enum], name="doctor_status"), nullable=False))
+    status: PractitionerStatus = Field(default=PractitionerStatus.UNDER_REVIEW, sa_column=Column(
+        pgEnum(PractitionerStatus, values_callable=lambda enum: [e.value for e in enum], name="practitioner_status"), nullable=False))
     is_available: bool = Field(
-        default=True, sa_column=Column(pg.BOOLEAN, nullable=False))
+        default=False, sa_column=Column(pg.BOOLEAN, nullable=False))
     years_of_experience: int = Field(default=None)
     user_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
         "users.uid", ondelete="CASCADE"), nullable=False, index=True))
 
     def __repr__(self):
-        return f"<Doctor uid={self.uid}, Doctor first_name={self.first_name}, Doctor's last_name={self.last_name}>"
+        return f"<Pracitioner uid={self.uid}, Practitioner first_name={self.first_name}, Practitioner's last_name={self.last_name}>"
 
     # Relationship
-    user: "User" = Relationship(
-        back_populates="doctor", sa_relationship_kwargs={"lazy": "selectin"})
-    hospital: "Hospital" = Relationship(
-        back_populates="doctor", sa_relationship_kwargs={"lazy": "selectin"})
-    appointment: List["Appointment"] = Relationship(
-        back_populates="doctor", sa_relationship_kwargs={"lazy": "selectin"}, passive_deletes=True)
-    department: "Department" = Relationship(
-        back_populates="doctors", sa_relationship_kwargs={"lazy": "selectin"})
-    medical_record: List["MedicalRecord"] = Relationship(
-        back_populates="doctor", sa_relationship_kwargs={"lazy": "selectin"}, passive_deletes=True)
+    user: Mapped["User"] = Relationship(
+        back_populates="practitioner", sa_relationship_kwargs={"lazy": "selectin"})
+    hospital: Mapped["Hospital"] = Relationship(
+        back_populates="practitioner", sa_relationship_kwargs={"lazy": "selectin"})
+    appointment: Mapped[List["Appointment"]] = Relationship(
+        back_populates="practitioner", sa_relationship_kwargs={"lazy": "selectin"}, passive_deletes=True)
+    department: Mapped["Department"] = Relationship(
+        back_populates="practitioners", sa_relationship_kwargs={"lazy": "selectin"})
+    medical_record: Mapped[List["MedicalRecord"]] = Relationship(
+        back_populates="practitioner", sa_relationship_kwargs={"lazy": "selectin"}, passive_deletes=True)
 
 
 # Admin Model
 class Admin(SQLModel, table=True):
-    __tablename__ = "admins"
+    __tablename__ = "admins" #type: ignore
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), nullable=False, primary_key=True))
     first_name: str = Field(default=None)
     middle_name: Optional[str] = Field(default=None)
     last_name: str = Field(default=None)
-    hospital_uid: Optional[uuid.UUID] = Field(sa_column=Column(pg.UUID(
+    hospital_uid: Optional[uuid.UUID] = Field(default=None, sa_column=Column(pg.UUID(
         as_uuid=True), ForeignKey("hospitals.uid", ondelete="CASCADE"), nullable=True, index=True))
     user_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
         "users.uid", ondelete="CASCADE"), nullable=False, index=True))
     admin_type: AdminType = Field(sa_column=Column(
         pgEnum(AdminType, values_callable=lambda enum: [e.value for e in enum], name="admin_type"), nullable=False))
-    department_uid: Optional[uuid.UUID] = Field(sa_column=Column(pg.UUID(
+    department_uid: Optional[uuid.UUID] = Field(default=None, sa_column=Column(pg.UUID(
         as_uuid=True), ForeignKey("departments.uid", ondelete="CASCADE"), nullable=True, index=True))
     notes: Optional[str] = None
 
@@ -322,7 +333,7 @@ class Admin(SQLModel, table=True):
 
 
 class Appointment(SQLModel, table=True):
-    __tablename__ = "appointments"
+    __tablename__ = "appointments" #type: ignore
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), primary_key=True, index=True))
@@ -339,8 +350,8 @@ class Appointment(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), nullable=True))
     cancellation_reason: Optional[str] = None
     status: AppointmentStatus = Field(default=AppointmentStatus.PENDING, sa_column=Column(pgEnum(AppointmentStatus, values_callable=lambda enum: [e.value for e in enum], name="appointment_status"), nullable=False))
-    doctor_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
-        "doctors.uid", ondelete="CASCADE"), nullable=True, index=True))
+    practitioner_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
+        "practitioners.uid", ondelete="CASCADE"), nullable=True, index=True))
     department_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
         "departments.uid", ondelete="CASCADE"), nullable=False, index=True))
     rescheduled_from: Optional[datetime] = Field(
@@ -355,14 +366,14 @@ class Appointment(SQLModel, table=True):
     )
 
     def __repr__(self):
-        return f"<Appointment uid={self.uid}, Patient uid={self.patient_uid}, Doctor uid={self.doctor_uid}, Status={self.status}>"
+        return f"<Appointment uid={self.uid}, Patient uid={self.patient_uid}, Practitioner uid={self.practitioner_uid}, Status={self.status}>"
 
     # Relationship
     patient: "Patient" = Relationship(
         back_populates="appointment", sa_relationship_kwargs={"lazy": "selectin"})
     hospital: "Hospital" = Relationship(
         back_populates="appointment", sa_relationship_kwargs={"lazy": "selectin"})
-    doctor: "Doctor" = Relationship(
+    practitioner: "Practitioner" = Relationship(
         back_populates="appointment", sa_relationship_kwargs={"lazy": "selectin"})
     department: "Department" = Relationship(
         back_populates="appointments", sa_relationship_kwargs={"lazy": "selectin"})
@@ -396,7 +407,7 @@ class RescheduleHistory(SQLModel, table=True):
 
 
 class Department(SQLModel, table=True):
-    __tablename__ = "departments"
+    __tablename__ = "departments" #type: ignore
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), primary_key=True, index=True))
@@ -421,7 +432,7 @@ class Department(SQLModel, table=True):
         back_populates="department", sa_relationship_kwargs={"lazy": "selectin"})
     admin: List["Admin"] = Relationship(
         back_populates="department", sa_relationship_kwargs={"lazy": "selectin"})
-    doctors: List["Doctor"] = Relationship(
+    practitioners: List["Practitioner"] = Relationship(
         back_populates="department", sa_relationship_kwargs={"lazy": "selectin"})
     appointments: List["Appointment"] = Relationship(
         back_populates="department", sa_relationship_kwargs={"lazy": "selectin"})
@@ -431,14 +442,14 @@ class Department(SQLModel, table=True):
 
 
 class MedicalRecord(SQLModel, table=True):
-    __tablename__ = "medical_records"
+    __tablename__ = "medical_records" #type: ignore
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), primary_key=True, index=True))
     patient_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
         "patients.uid", ondelete="CASCADE"), nullable=False, index=True))
-    doctor_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
-        "doctors.uid", ondelete="CASCADE"), nullable=False, index=True))
+    practitioner_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
+        "practitioners.uid", ondelete="CASCADE"), nullable=False, index=True))
     hospital_uid: Optional[uuid.UUID] = Field(sa_column=Column(pg.UUID(
         as_uuid=True), ForeignKey("hospitals.uid", ondelete="CASCADE"), nullable=True, index=True))
     record_type: RecordType = Field(default=RecordType.PRESCRIPTION, sa_column=Column(
@@ -458,21 +469,21 @@ class MedicalRecord(SQLModel, table=True):
     )
 
     def __repr__(self):
-        return f"<Medical Record uid={self.uid}, Patient uid={self.patient_uid}, Doctor uid={self.doctor_uid}, Hospital uid={self.hospital_uid}, Record Type={self.record_type}>"
+        return f"<Medical Record uid={self.uid}, Patient uid={self.patient_uid}, Practitioner uid={self.practitioner_uid}, Hospital uid={self.hospital_uid}, Record Type={self.record_type}>"
 
     # Relationships
     files: List["MedicalRecordFile"] = Relationship(back_populates="medical_record", sa_relationship_kwargs={
                                                     "lazy": "selectin", "cascade": "all, delete-orphan"}, passive_deletes=True)
     patient: "Patient" = Relationship(
         back_populates="medical_record", sa_relationship_kwargs={"lazy": "selectin"})
-    doctor: "Doctor" = Relationship(
+    practitioner: "Practitioner" = Relationship(
         back_populates="medical_record", sa_relationship_kwargs={"lazy": "selectin"})
     hospital: "Hospital" = Relationship(
         back_populates="medical_record", sa_relationship_kwargs={"lazy": "selectin"})
 
 
 class MedicalRecordFile(SQLModel, table=True):
-    __tablename__ = "medical_record_files"
+    __tablename__ = "medical_record_files" #type: ignore
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), primary_key=True, index=True))
@@ -495,31 +506,29 @@ class MedicalRecordFile(SQLModel, table=True):
         back_populates="files", sa_relationship_kwargs={"lazy": "selectin"})
 
 
-# Signup Link - Table to store generated tokens for admins/doctors signup links.
+# Signup Link - Table to store generated tokens for Admins/Practitioners signup links.
 class SignupLink(SQLModel, table=True):
-    __tablename__ = "signup_links"
+    __tablename__ = "signup_links" #type: ignore
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), primary_key=True, index=True))
     token: str = Field(sa_column=Column(String, unique=True, index=True))
     email: str = Field(sa_column=Column(String, nullable=False))
-    hospital_uid: str = Field(sa_column=Column(String, nullable=False))
-    department_uid: str = Field(sa_column=Column(String, nullable=True))
-    admin_type: AdminType = Field(sa_column=Column(
+    hospital_uid: uuid.UUID = Field(sa_column=Column(String, nullable=False))
+    department_uid: uuid.UUID = Field(sa_column=Column(String, nullable=True))
+    admin_type: AdminType = Field(default=AdminType.HOSPITAL_ADMIN, sa_column=Column(
         pgEnum(AdminType, values_callable=lambda enum: [e.value for e in enum], name="admin_type"), nullable=False))
+    practitioner_type: PractitionerType = Field(default=PractitionerType.DOCTOR, sa_column=Column(pgEnum(PractitionerType, values_callable=lambda enum: [e.value for e in enum], name="practitioner_type"), nullable=False))
     notes: Optional[str] = None
     is_used: bool = Field(default=False)
-    created_at: datetime = Field(
-        sa_column=Column(DateTime(timezone=True),
-                         default=lambda: datetime.now(timezone.utc))
-    )
+    created_at: datetime = Field(default=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
 
     def __repr__(self):
         return f"<SignupLink: uid={self.uid}, email= {self.email}, is_used={self.is_used}>"
 
 
 class PasswordResetToken(SQLModel, table=True):
-    __tablename__ = "password_reset_tokens"
+    __tablename__ = "password_reset_tokens" #type: ignore
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), primary_key=True, index=True))
@@ -534,7 +543,7 @@ class PasswordResetToken(SQLModel, table=True):
 
 
 class Message(SQLModel, table=True):
-    __tablename__ = "messages"
+    __tablename__ = "messages" #type: ignore
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), primary_key=True, index=True))
@@ -573,17 +582,18 @@ class Message(SQLModel, table=True):
 
 
 class BlacklistedToken(SQLModel, table=True):
-    __tablename__ = "blacklistedtokens"
+    __tablename__ = "blacklistedtokens" #type: ignore
 
-    id: int = Field(sa_column=Column(
-        Integer, primary_key=True, nullable=False))
+    uid: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, sa_column=Column(
+        pg.UUID(as_uuid=True), primary_key=True, index=True))
     token_jti: str = Field(sa_column=Column(String, unique=True))
     session_id: str = Field(sa_column=Column(String, index=True, unique=True))
     expires_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
+    
 
 
 class RefreshToken(SQLModel, table=True):
-    __tablename__ = "refreshtokens"
+    __tablename__ = "refreshtokens" #type: ignore
 
     uid: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), primary_key=True, index=True))
@@ -593,14 +603,14 @@ class RefreshToken(SQLModel, table=True):
     session_id: str = Field(sa_column=Column(String, index=True, unique=True))
     expires_at: datetime = Field(sa_column=Column(DateTime(timezone=True)))
     created_at: datetime = Field(
-        sa_column=Column(DateTime(timezone=True),
-                         default=lambda: datetime.now(timezone.utc))
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True)),
     )
     revoked: bool = Field(default=False)
 
 
 class Notification(SQLModel, table=True):
-    __tablename__ = "notifications"
+    __tablename__ = "notifications" #type: ignore
 
     uid: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), primary_key=True, index=True))
@@ -621,17 +631,14 @@ class Notification(SQLModel, table=True):
 
 
 class Queue(SQLModel, table=True):
-    __tablename__ = "queues"
+    __tablename__ = "queues" #type: ignore
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), primary_key=True, index=True))
     name: str
     hospital_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
         "hospitals.uid", ondelete="CASCADE"), nullable=False, index=True))
-    created_at: datetime = Field(
-        sa_column=Column(DateTime(timezone=True),
-                         default=lambda: datetime.now(timezone.utc))
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
     
     def __repr__(self):
         return f"<Queue uid={self.uid}, Hospital uid={self.hospital_uid}, >"
@@ -645,7 +652,7 @@ class Queue(SQLModel, table=True):
 
 
 class QueueEntry(SQLModel, table=True):
-    __tablename__ = "queue_entries"
+    __tablename__ = "queue_entries" #type: ignore
 
     uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(
         pg.UUID(as_uuid=True), primary_key=True, index=True))

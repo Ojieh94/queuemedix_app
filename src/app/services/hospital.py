@@ -1,4 +1,5 @@
 from decimal import Decimal
+import uuid
 
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio.session import AsyncSession
@@ -64,7 +65,7 @@ async def view_hospital_doctors(hospital_uid: str, availability: Optional[bool],
     return result.scalars().all()
 
 
-async def get_single_hospital(hospital_uid: str, session: AsyncSession):
+async def get_single_hospital(hospital_uid: uuid.UUID, session: AsyncSession):
 
     stmt = select(Hospital).where(Hospital.uid == hospital_uid).options(selectinload(Hospital.user))
 

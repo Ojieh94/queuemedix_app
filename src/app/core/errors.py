@@ -1,6 +1,6 @@
 from calendar import c
 from fastapi import FastAPI, status
-from typing import Any, Callable
+from typing import Any, Callable, Awaitable
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse
 from src.app.core.utils import create_url_safe_token
@@ -85,7 +85,7 @@ class MessageNotFound(ExceptionSystemManager):
     """Message does not exist!"""
     pass
 
-class DoctorNotFound(ExceptionSystemManager):
+class PractitionerNotFound(ExceptionSystemManager):
     """Doctor does not exist!"""
     pass
 
@@ -123,7 +123,7 @@ class FileUpload(ExceptionSystemManager):
     """Invalid image type"""
     pass
 
-def create_exception_handler(status_code: int, initial_detail: Any) -> Callable[[Request, Exception], JSONResponse]:
+def create_exception_handler(status_code: int, initial_detail: Any) -> Callable[[Request, Exception], Awaitable[JSONResponse]]:
 
     async def exception_handler(request: Request, exception: ExceptionSystemManager):
 
@@ -132,7 +132,7 @@ def create_exception_handler(status_code: int, initial_detail: Any) -> Callable[
             status_code=status_code
         )
     
-    return exception_handler
+    return exception_handler #type: ignore
 
 def register_all_errors(app: FastAPI):
     #InvalidToken
@@ -304,9 +304,9 @@ def register_all_errors(app: FastAPI):
         )
     )
 
-    # DoctorNotFound
+    # PractitionerNotFound
     app.add_exception_handler(
-        DoctorNotFound,
+        PractitionerNotFound,
         create_exception_handler(
             status_code=status.HTTP_404_NOT_FOUND,
             initial_detail={

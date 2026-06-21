@@ -9,7 +9,7 @@ from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
 from itsdangerous import URLSafeTimedSerializer,BadSignature, SignatureExpired
 from src.app.core.settings import Config
-from src.app.models import Admin, RefreshToken, BlacklistedToken
+from src.app.models import RefreshToken, BlacklistedToken
 
 
 ACCESS_TOKEN_EXPIRY= 30000 #Time in mins(15). Please increase this while developing
@@ -25,7 +25,7 @@ def verify_password(password: str, hashed_password: str) -> bool:
     return pwd_context.verify(password, hashed_password)
 
 
-def create_access_token(user_data: dict, expiry: timedelta = None, refresh: bool=False, session_id: str=None, jti: str=None):
+def create_access_token(user_data: dict, expiry: timedelta | None = None, refresh: bool=False, session_id: str | None = None, jti: str | None = None):
 
     token_expiry = expiry if expiry is not None else timedelta(minutes=ACCESS_TOKEN_EXPIRY)
 
@@ -71,7 +71,7 @@ async def save_refresh_token_jti(
         jti: str,
         session_id: str,
         expires_at: datetime,
-        user_uid: str,
+        user_uid: uuid.UUID,
         session: AsyncSession
     ):
 
@@ -90,7 +90,7 @@ async def validate_refresh_token_jti(jti: str, session:AsyncSession):
 
     stmt = select(RefreshToken).where(
         RefreshToken.jti == jti,
-        RefreshToken.revoked == False,
+        not RefreshToken.revoked,
         RefreshToken.expires_at > datetime.now(timezone.utc)
         )
     
@@ -133,7 +133,8 @@ async def create_token_blacklist(token: str, session: AsyncSession):
     except Exception:
         raise ValueError("Invalid token")
     
-    token_jti = payload.get('jti') 
+    token_jti = payload.get('jti')
+
     session_id = payload.get('session_id')   
     blacklist_token = BlacklistedToken(token_jti=token_jti, session_id=session_id, expires_at=expires_at)
 
@@ -151,7 +152,7 @@ async def get_blacklisted_token_jti(jti: str, session: AsyncSession):
 
 async def get_blacklisted_token(token: str, session: AsyncSession):
 
-    statement = select(BlacklistedToken).where(BlacklistedToken.token == token)
+    statement = select(BlacklistedToken).where(BlacklistedToken.token_jti == token)
 
     result = await session.execute(statement)
 
@@ -162,7 +163,7 @@ async def delete_blacklisted_token(session: AsyncSession):
 
     now = datetime.now(timezone.utc)
 
-    token = delete(BlacklistedToken).where(BlacklistedToken.expires_at < now)
+    token = delete(BlacklistedToken).where(BlacklistedToken.expires_at < now) #type: ignore
 
     await session.execute(token)
     await session.commit()

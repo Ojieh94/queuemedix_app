@@ -1,8 +1,9 @@
-from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
+from pydantic import AfterValidator, BaseModel, EmailStr, field_validator, ConfigDict
 import uuid
 from datetime import datetime, date
-from typing import Optional, List
-from src.app.models import AdminTypeUpdate, UserRoles, HospitalType, AdminType, AppointmentStatus, RecordType, DoctorStatus, HospitalStatus
+from typing import Annotated, Optional
+from src.app.models import AdminTypeUpdate, UserRoles, HospitalType, AdminType, AppointmentStatus, RecordType, PractitionerStatus, HospitalStatus
+from src.app import validators
 
 ######### ............Department Model.............###########
 class DepartmentCreate(BaseModel):
@@ -27,15 +28,13 @@ class DepartmentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class EmailStrLower(EmailStr):
-    @classmethod
-    def __get_validators__(cls):
-        yield from super().__get_validators__()
-        yield cls.to_lower
+def lower_email(value: EmailStr) -> str:
+    return value.lower()
 
-    @classmethod
-    def to_lower(cls, v):
-        return v.lower().strip() if isinstance(v, str) else v
+EmailStrLower = Annotated[
+    EmailStr,
+    AfterValidator(lower_email)
+]
 
 ############### ......User Auth Model........############
 
@@ -51,21 +50,18 @@ class RegisterUser(UserBase):
     password: str
 
     @field_validator('password')
-    def validate_password(cls, value):
-        if len(value) < 8:
-            raise ValueError('Password must be at least 8 characters long')
-        if not any(char.isdigit() for char in value):
-            raise ValueError('Password must contain at least one digit')
-        if not any(char.islower() for char in value):
-            raise ValueError(
-                'Password must contain at least one lowercase letter')
-        if not any(char.isupper() for char in value):
-            raise ValueError(
-                'Password must contain at least one uppercase letter')
-        if not any(char in "!@#$%^&*()_+[]{}|;:,.<>?/~" for char in value):
-            raise ValueError(
-                'Password must contain at least one special character')
-        return value
+    def validate_password(cls, value: str) -> str:
+        return validators.validate_password_strength(value)
+    
+
+class RegisterPractitionerUser(BaseModel):
+    email: EmailStrLower
+    role: UserRoles = UserRoles.PRACTITIONER
+    password: str
+
+    @field_validator('password')
+    def validate_password(cls, value: str) -> str:
+        return validators.validate_password_strength(value)
 
 
 class RegisterAdminUser(BaseModel):
@@ -74,27 +70,14 @@ class RegisterAdminUser(BaseModel):
     password: str
 
     @field_validator('password')
-    def validate_password(cls, value):
-        if len(value) < 8:
-            raise ValueError('Password must be at least 8 characters long')
-        if not any(char.isdigit() for char in value):
-            raise ValueError('Password must contain at least one digit')
-        if not any(char.islower() for char in value):
-            raise ValueError(
-                'Password must contain at least one lowercase letter')
-        if not any(char.isupper() for char in value):
-            raise ValueError(
-                'Password must contain at least one uppercase letter')
-        if not any(char in "!@#$%^&*()_+[]{}|;:,.<>?/~" for char in value):
-            raise ValueError(
-                'Password must contain at least one special character')
-        return value
+    def validate_password(cls, value: str) -> str:
+        return validators.validate_password_strength(value)
+
 
 
 class UserRead(UserBase):
     uid: uuid.UUID
     username: str
-    role: UserRoles
     is_active: bool = False
     profile_picture: Optional[str] = None
     created_at: datetime
@@ -162,11 +145,11 @@ class HospitalRatingCreate(BaseModel):
         if value < 1 or value > 5:
             raise ValueError('Rating must be between 1 and 5')
 
-        decimal_rating = Decimal(str(value))  # noqa: F821
+        decimal_rating = Decimal(str(value))  #type: ignore  # noqa: F821
         if decimal_rating.as_tuple().exponent < -1:
             raise ValueError('Rating can have at most one decimal place')
 
-        return float(decimal_rating.quantize(Decimal('0.1')))  # noqa: F821
+        return float(decimal_rating.quantize(Decimal('0.1'))) #type: ignore  # noqa: F821
 
 
 class HospitalRead(HospitalBase):
@@ -242,8 +225,8 @@ class PatientRead(PatientBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-########## .........Doctor Model...........################
-class DoctorBase(BaseModel):
+########## .........Practitioner Model...........################
+class PractitionerBase(BaseModel):
     first_name: str
     middle_name: Optional[str] = None
     last_name: str
@@ -263,11 +246,11 @@ class DoctorBase(BaseModel):
     is_available: bool = True
 
 
-class DoctorProfileCreate(DoctorBase):
+class PractitionerProfileCreate(PractitionerBase):
     pass
 
 
-class DoctorProfileUpdate(BaseModel):
+class PractitionerProfileUpdate(BaseModel):
     first_name: Optional[str] = None
     middle_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -286,20 +269,20 @@ class DoctorProfileUpdate(BaseModel):
     years_of_experience: Optional[int] = None
 
 
-class DoctorAssign(BaseModel):
-    doctor_uid: uuid.UUID
+class PractitionerAssign(BaseModel):
+    practitioner_uid: uuid.UUID
 
 
-class DoctorRead(DoctorBase):
+class PractitionerRead(PractitionerBase):
     uid: uuid.UUID
-    status: DoctorStatus = DoctorStatus.UNDER_REVIEW
+    status: PractitionerStatus = PractitionerStatus.UNDER_REVIEW
     hospital: HospitalResponse | None
     department: DepartmentResponse | None
     user: UserProfile | None
 
     model_config = ConfigDict(from_attributes=True)
 
-class DoctorResponse(BaseModel):
+class PractitionerResponse(BaseModel):
     uid: uuid.UUID
     first_name: str
     middle_name: Optional[str] = None
@@ -343,7 +326,7 @@ class AssignAdminDuty(BaseModel):
 
 class AdminRead(AdminBase):
     uid: uuid.UUID
-    hospital: HospitalResponse = None
+    hospital: HospitalResponse | None
     department: DepartmentResponse | None
     notes: Optional[str] = None
     user: UserProfile | None
@@ -388,7 +371,7 @@ class RescheduleAppointment(BaseModel):
 class AppointmentRead(AppointmentBase):
     uid: uuid.UUID
     patient: PatientRead | None
-    doctor: DoctorResponse | None
+    practitioner: PractitionerResponse | None
     hospital: HospitalResponse | None
     department: DepartmentResponse | None
     status: AppointmentStatus = AppointmentStatus.PENDING
@@ -406,7 +389,7 @@ class AppointmentRead(AppointmentBase):
 ######## ............Medical Record Model.........############
 class MedicalRecordCreate(BaseModel):
     patient_uid: Optional[uuid.UUID] = None
-    doctor_uid: Optional[uuid.UUID] = None
+    practitioner_uid: Optional[uuid.UUID] = None
     hospital_uid: Optional[uuid.UUID] = None
     record_type: RecordType = RecordType.PRESCRIPTION
     description: str
@@ -433,7 +416,7 @@ class MedicalRecordFile(BaseModel):
 class MedicalRecordRead(BaseModel):
     uid: uuid.UUID
     patient: PatientRead
-    doctor: DoctorResponse
+    practitioner: PractitionerResponse
     hospital: HospitalResponse | None
     record_type: RecordType
     description: str
@@ -484,7 +467,7 @@ class LoginData(BaseModel):
 
 
 class EmailModel(BaseModel):
-    mail_to: List[str]
+    mail_to: str
 
 
 class PasswordResetRequest(BaseModel):
@@ -499,7 +482,6 @@ class ConfirmPasswordReset(BaseModel):
 # .....USER RETURN TO GET UUID CREATE FOR THE EXTRA TABLES FOR DEVELOPMENT PURPOSE
 class UserReadMe(UserBase):
     uid: uuid.UUID
-    role: UserRoles
     username: str
     is_active: bool = False
     profile_picture: Optional[str]
@@ -507,7 +489,7 @@ class UserReadMe(UserBase):
     updated_at: datetime
     admin: Optional[AdminRead]
     patient: Optional[PatientRead]
-    doctor: Optional[DoctorRead]
+    practitioner: Optional[PractitionerRead]
     hospital: Optional[HospitalRead]
 
     model_config = ConfigDict(from_attributes=True)
@@ -524,7 +506,7 @@ class AppointmentResponse(BaseModel):
     status: AppointmentStatus = AppointmentStatus.PENDING
     check_in_time: Optional[datetime] = None
     completed_time: Optional[datetime] = None
-    doctor: DoctorResponse | None
+    practitioner: PractitionerResponse | None
     patient: PatientRead | None
     hospital: HospitalResponse
     rescheduled_from: Optional[datetime] = None

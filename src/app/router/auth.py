@@ -6,10 +6,10 @@ from fastapi.security.http import HTTPAuthorizationCredentials
 from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from datetime import timedelta, datetime, timezone
-from src.app.schemas import RegisterUser, LoginData, EmailModel, RegisterAdminUser
+from src.app.schemas import RegisterUser, LoginData, EmailModel, RegisterAdminUser, RegisterPractitionerUser
 from src.app.database.main import get_session
-from src.app.models import User, AdminType
-from src.app.services import user as user_service, auth as auth_service, sign_up_link as link_service
+from src.app.models import User, AdminType, PractitionerType
+from src.app.services import user as user_service, auth as auth_service, sign_up_link as link_service, hospital as hp_service
 from src.app.core.dependencies import get_current_user, refresh_token
 from src.app.core import celery, errors, settings, redis, mails
 from src.app import schemas
@@ -44,10 +44,9 @@ async def register_user(payload: RegisterUser, session: AsyncSession = Depends(g
 
     """
     Only these roles can use this endpoint:
-    Roles: "doctor", "hospital", "patient"
+    Roles:  "hospital" and "patient"
     
     """
-    email = payload.email
 
     # existing_username = await user_service.username_exists(payload.username, session)
     # if existing_username:
@@ -60,12 +59,14 @@ async def register_user(payload: RegisterUser, session: AsyncSession = Depends(g
     
     new_user = await auth_service.register_user(payload=payload, session=session)
 
-    token = create_url_safe_token({"email": email})
+    # email = payload.email
 
-    mails.send_verification_email(email, token)
+    # token = create_url_safe_token({"email": email})
+
+    # mails.send_verification_email(email, token)
 
     # Save the token in Redis
-    await redis.save_email_verification_token(email, token)
+    # await redis.save_email_verification_token(email, token)
 
     return {
         "message": f"{payload.role.capitalize()}'s account created successfully! Please check your email to verify your account.",
@@ -73,53 +74,27 @@ async def register_user(payload: RegisterUser, session: AsyncSession = Depends(g
     }
 
 
-@auth_router.post('/auth/test-register', status_code=status.HTTP_201_CREATED)
-async def register_user_test(payload: RegisterUser, session: AsyncSession = Depends(get_session)):
-    """
-    Test registration endpoint for deployment testing.
-    
-    Does NOT require email verification and automatically activates the user.
-    **For testing in deployment only.**
-    
-    Roles: "doctor", "hospital", "patient"
-    """
-    # existing_username = await user_service.username_exists(payload.username, session)
-    # if existing_username:
-    #     raise errors.UsernameAlreadyExists()
+@auth_router.post("/auth/signup/pracitioners", status_code=status.HTTP_201_CREATED)
+async def register_practitioners(payload: RegisterPractitionerUser, token: str, session: AsyncSession = Depends(get_session)):
 
-    existing_user = await user_service.get_user_email(payload.email, session)
+    """
+    This endpoint is for admins to signup with generated link by hospital
+    Roles: "practitioners"
+    
+    """
+    email = payload.email
+
+    existing_user = await user_service.get_user_email(email, session)
 
     if existing_user:
         raise errors.UserAlreadyExists()
     
-    new_user = await auth_service.register_user_test(payload=payload, session=session)
+    new_user = await auth_service.register_practitioners(payload, token, session)
 
     return {
-        "message": f"{payload.role.capitalize()}'s test account created and verified successfully!",
+        "message": f"Hello! {new_user.username} your account has been created and activated successfully! Please proceed to login.",
         "user": new_user 
     }
-
-
-@auth_router.post("/auth/signup_link", tags=["Unique Signup Link Generator"])
-async def generate_link(email: str, notes: str, admin_type: AdminType, request: Request, department_uid: Optional[str] = None, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
-
-    token = await link_service.create_signup_link(email, notes, admin_type, current_user, session, department_uid=department_uid)
-
-    # Construct the full URL based on request
-    base_url = str(request.base_url).rstrip("/")
-    signup_path = "/auth/signup/hospital_admin"
-    signup_link = f"{base_url}{signup_path}?token={token}"
-
-    #forward the link to the admin's email
-    mails.hospital_admin_invite(email, current_user.hospital.hospital_name, signup_link)
-
-    return JSONResponse(
-        content={
-            "message": "Your link has been created and forwarded to the admin's email successfully.",
-            "data": signup_link
-        }
-    )
-
 
 
 ### ADMIN SESSION
@@ -133,7 +108,7 @@ async def admin_signup(payload: RegisterAdminUser, token: str, session: AsyncSes
     """
     email = payload.email
 
-    existing_user = await user_service.get_user_email(payload.email, session)
+    existing_user = await user_service.get_user_email(email, session)
 
     if existing_user:
         raise errors.UserAlreadyExists()
@@ -141,12 +116,12 @@ async def admin_signup(payload: RegisterAdminUser, token: str, session: AsyncSes
     new_user = await auth_service.register_admin(payload, token, session)
 
     return {
-        "message": f"Hello! {payload.username} your account has been created and activated successfully! Please proceed to login.",
+        "message": f"Hello! {new_user.username} your account has been created and activated successfully! Please proceed to login.",
         "user": new_user 
     }
 
 
-@auth_router.post("/auth/signup/queue_medix_admin", status_code=status.HTTP_201_CREATED)
+@auth_router.post("/auth/signup/super-admin", status_code=status.HTTP_201_CREATED)
 async def super_admin_signup(payload: RegisterAdminUser, session: AsyncSession = Depends(get_session)):
 
     
@@ -168,7 +143,7 @@ async def super_admin_signup(payload: RegisterAdminUser, session: AsyncSession =
     await redis.save_email_verification_token(email, token)
 
     return {
-        "message": f"Hello! {payload.username} your account has been created successfully! Please check your email for verification link.",
+        "message": f"Hello! {new_user.username} your account has been created successfully! Please check your email for verification link.",
         "user": new_user 
     }
 
@@ -267,6 +242,9 @@ async def logout(bg_task: BackgroundTasks, credentials: HTTPAuthorizationCredent
         
         token_jti = token_data.get('jti')
 
+        if not token_jti:
+            return
+
         #will not be neccessary just to control exceptions for ease dev exprience
         revoked_token = await get_blacklisted_token_jti(token_jti, session)
         if revoked_token:
@@ -308,6 +286,10 @@ async def get_new_token(token_details: dict = Depends(refresh_token), session: A
     user = token_details.get('user')
     session_id = token_details.get('session_id')
     jti = token_details.get('jti')
+
+    if not jti or not user:
+        return
+
 
     await validate_refresh_token_jti(jti, session)
 
@@ -368,9 +350,7 @@ async def password_reset_request(email_data: schemas.PasswordResetRequest):
 
     token = create_url_safe_token({"email": email})
 
-    emails = [email]
-
-    mails.send_password_reset_email(emails, token)
+    mails.send_password_reset_email(email, token)
 
     return JSONResponse(
         content={"message": "Please check your email for instructions to reset your password."},
@@ -421,6 +401,56 @@ async def confirm_password_reset(passwd_data: schemas.ConfirmPasswordReset, toke
 async def send_email(email: EmailModel):
     mail_to = email.mail_to
 
+
     mails.send_test(mail_to)
 
     return {"message": "email sent successfully!"}
+
+
+@auth_router.post("/auth/signup_link", tags=["Unique Signup Link Generator"])
+async def generate_practitioner_signup_link(email: str, notes: str, type: PractitionerType, request: Request, department_uid: uuid.UUID, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
+
+    if not current_user.hospital:
+        raise errors.HospitalNotFound()
+
+    token = await link_service.create_practitioner_signup_link(email, notes, type, current_user.hospital.uid, department_uid, session)
+
+    # Construct the full URL based on request
+    base_url = str(request.base_url).rstrip("/")
+    signup_path = "/auth/signup/hospital_admin"
+    signup_link = f"{base_url}{signup_path}?token={token}"
+
+    #forward the link to the admin's email
+    mails.hospital_practitioner_invite(email, current_user.hospital.hospital_name, notes, signup_link)
+
+    return JSONResponse(
+        content={
+            "message": "Your link has been created and forwarded to the admin's email successfully.",
+            "data": signup_link
+        }
+    )
+
+
+@auth_router.post("/auth/signup_link", tags=["Unique Signup Link Generator"])
+async def generate_admin_signup_link(email: str, notes: str, admin_type: AdminType, request: Request, department_uid: uuid.UUID, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
+
+    if not current_user.hospital:
+        raise errors.HospitalNotFound()
+
+    token = await link_service.create_admin_signup_link(email, notes, admin_type, current_user.hospital.uid, session, department_uid=department_uid)
+
+    # Construct the full URL based on request
+    base_url = str(request.base_url).rstrip("/")
+    signup_path = "/auth/signup/hospital_admin"
+    signup_link = f"{base_url}{signup_path}?token={token}"
+
+    #forward the link to the admin's email
+    mails.hospital_admin_invite(email, current_user.hospital.hospital_name, notes, signup_link)
+
+    return JSONResponse(
+        content={
+            "message": "Your link has been created and forwarded to the admin's email successfully.",
+            "data": signup_link
+        }
+    )
+
