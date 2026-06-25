@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from src.app.models import  AdminType, User, UserRoles, AppointmentStatus
 from src.app.core.dependencies import AccessTokenBearer, get_current_user
-from src.app.schemas import AdminProfileUpdate, AdminRead, DoctorAssign, VerifyHospital
+from src.app.schemas import AdminProfileUpdate, AdminRead, PractitionerAssign, VerifyHospital
 from src.app.services.notification import send_notification
 from src.app.services import admins as admin_service, appointment as appt_service, hospital as hp_service, queue
 from src.app.database.main import get_session
@@ -29,12 +29,12 @@ async def get_admins(skip: int = 0, limit: int = 100, session: AsyncSession = De
 
 
 @admin_router.get('/admins/{admin_id}', status_code=status.HTTP_200_OK, response_model=AdminRead)
-async def get_admin(admin_id: str, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+async def get_admin(admin_uid: uuid.UUID, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
     """Protected endpoint for super admins to get an admin by uuid"""
 
     permissions.accessible_to_super_admin(current_user)
 
-    admin = await admin_service.get_admin(admin_id=admin_id, session=session)
+    admin = await admin_service.get_admin(admin_uid, session)
 
     if admin:
         return admin
@@ -42,45 +42,41 @@ async def get_admin(admin_id: str, session: AsyncSession = Depends(get_session),
         raise errors.AdminNotFound()
     
 
-@admin_router.get('/hospitals/{hospital_id}/admins', status_code=status.HTTP_200_OK ,response_model=List[AdminRead])
-async def get_hospital_admins(hospital_id: str, skip: int = 0, limit: int = 100, session: AsyncSession = Depends(get_session),
+@admin_router.get('/hospitals/admins', status_code=status.HTTP_200_OK ,response_model=List[AdminRead])
+async def get_hospital_admins(hospital_uid: uuid.UUID, skip: int = 0, limit: int = 100, session: AsyncSession = Depends(get_session),
                         current_user: User = Depends(get_current_user)):
     """Protected endpoint for super admins and hospital admins to get all admins of a hospital"""
 
     if current_user.role not in [UserRoles.ADMIN, UserRoles.HOSPITAL]:
-        raise errors.NotAuthorized()
+        raise errors.RoleCheckAccess()
     
-    if current_user.admin.admin_type == AdminType.HOSPITAL_ADMIN:
-        if current_user.admin.hospital_uid != uuid.UUID(hospital_id):
-            raise errors.NotAuthorized()
-        
-    if current_user.role == UserRoles.HOSPITAL:
-        if current_user.hospital.uid != uuid.UUID(hospital_id):
-            raise errors.NotAuthorized()
+    is_hospital_admin = (current_user.admin is not None and current_user.admin.hospital_uid == hospital_uid)
 
-    admins = await admin_service.get_hospital_admins(hospital_id=hospital_id, session=session)
+    is_hospital = (current_user.hospital is not None and current_user.hospital.uid == hospital_uid)
+
+    is_admin = (current_user.admin is not None and current_user.admin.admin_type == AdminType.SUPER_ADMIN)
+        
+    if not (is_hospital or is_hospital_admin or is_admin):
+        raise errors.NotAuthorized()
+
+    admins = await admin_service.get_hospital_admins(hospital_uid, session)
 
     return admins
     
 
-@admin_router.put("/admins/{admin_id}", status_code=status.HTTP_202_ACCEPTED, response_model=AdminRead)
-async def update_admin_profile(admin_id: str, update_data: AdminProfileUpdate, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+@admin_router.put("/admins/profile-update", status_code=status.HTTP_202_ACCEPTED, response_model=AdminRead)
+async def update_admin_profile(admin_uid: uuid.UUID, update_data: AdminProfileUpdate, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
     """Protected endpoint for updating admin profile"""
-
-    if current_user.role != UserRoles.ADMIN or current_user.admin.admin_type == AdminType.DEPARTMENT_ADMIN:
-        raise errors.NotAuthorized()
     
-    admin_to_update = await admin_service.get_admin(admin_id, session)
+    admin_to_update = await admin_service.get_admin(admin_uid, session)
 
     if not admin_to_update:
         raise errors.AdminNotFound()
     
-    if current_user.admin.admin_type == AdminType.HOSPITAL_ADMIN:
-        if current_user.admin.hospital_uid != admin_to_update.hospital_uid:
-            
-            raise errors.NotAuthorized()
+    if current_user.uid != admin_to_update.user_uid:
+        raise errors.NotAuthorized()
     
-    admin = await admin_service.update_admin(admin_id, update_data, session)
+    admin = await admin_service.update_admin(admin_uid, update_data, session)
 
     return admin
 
@@ -88,43 +84,41 @@ async def update_admin_profile(admin_id: str, update_data: AdminProfileUpdate, s
     
 
 
-@admin_router.delete("/admins/{admin_id}", status_code=status.HTTP_200_OK)
+@admin_router.delete("/admins/delete-account", status_code=status.HTTP_200_OK)
 async def delete_admin(
-    admin_id: str,
+    admin_uid: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
     """Protected endpoint for super admins (and hospital admins) to delete admin users"""
 
-    # Ensure only admins of correct types can delete
-    if (
-        current_user.role != UserRoles.ADMIN
-        or current_user.admin.admin_type not in [AdminType.HOSPITAL_ADMIN, AdminType.SUPER_ADMIN]
-    ):
-        raise errors.NotAuthorized()
-
-    # Fetch admin to delete
-    admin_to_delete = await admin_service.get_admin(admin_id=admin_id, session=session)
+     # Fetch admin to delete
+    admin_to_delete = await admin_service.get_admin(admin_uid, session)
     if not admin_to_delete:
         raise errors.AdminNotFound()
 
-    # Hospital admins can only delete admins within their own hospital
-    if (
-        current_user.admin.admin_type == AdminType.HOSPITAL_ADMIN
-        and admin_to_delete.hospital_uid != current_user.admin.hospital_uid
-    ):
+    # Ensure only admins of correct types can delete
+    is_hospital_admin = (current_user.admin is not None and current_user.admin.hospital_uid == admin_to_delete.hospital_uid)
+
+    is_hospital = (current_user.hospital is not None and current_user.hospital.uid == admin_to_delete.hospital_uid)
+
+    is_admin = (current_user.admin is not None and current_user.admin.admin_type == AdminType.SUPER_ADMIN)
+        
+    if not (is_hospital or is_hospital_admin or is_admin):
         raise errors.NotAuthorized()
 
+   
+
     # Perform deletion
-    await admin_service.delete_admin(admin_id=admin_id, session=session)
+    await admin_service.delete_admin(admin_uid, session)
 
     return {"message": "Admin deleted successfully"}
 
 
 
 
-@admin_router.patch('/appointments/assign-doctor', status_code=status.HTTP_202_ACCEPTED)
-async def assign_doctor(appointment_uid: str, payload: DoctorAssign, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+@admin_router.patch('/appointments/assign-practitioner', status_code=status.HTTP_202_ACCEPTED)
+async def assign_practitioner(appointment_uid: uuid.UUID, payload: PractitionerAssign, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
     
     appointment = await appt_service.get_appointment_by_id(appointment_uid, session)
 
@@ -132,20 +126,20 @@ async def assign_doctor(appointment_uid: str, payload: DoctorAssign, session: As
         raise errors.AppointmentNotFound()
     
     #access control
-    permissions.doctor_assign_access(current_user, appointment)
+    permissions.practitioner_assign_access(current_user, appointment)
 
     
-    #Check if the doctor is available...............(awaiting doctor's service)
-    doctor = await appt_service.get_single_doctor(payload.doctor_uid, session)
+    #Check if the practitioner is available...............(awaiting practitioner's service)
+    practitioner = await appt_service.get_single_practitioner(payload.practitioner_uid, session)
 
-    if not doctor:
-        raise errors.DoctorNotFound()
+    if not practitioner:
+        raise errors.PractitionerNotFound()
     
-    if not doctor.is_available:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Doctor is currently unavailable")
+    if not practitioner.is_available:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The selected practitioner is currently unavailable")
     
-    # Assign doctor to the appointment
-    appointment.doctor_uid = payload.doctor_uid
+    # Assign practitioner to the appointment
+    appointment.practitioner_uid = payload.practitioner_uid
     appointment.status = AppointmentStatus.IN_PROGRESS
 
     # Create queue entry
@@ -154,26 +148,28 @@ async def assign_doctor(appointment_uid: str, payload: DoctorAssign, session: As
     await session.commit()
     await session.refresh(appointment)
 
+    practitioner_full_name = " ".join(filter(None, [practitioner.first_name, practitioner.last_name]))
+
    
-    #push notification to doctor
-    await send_notification(session, doctor.user_uid, {
+    #push notification to practitioner
+    await send_notification(session, practitioner.user_uid, {
         "title": "Assigned Appointment",
-        "body": f"Hello {doctor.last_name}, You have been assigned to {appointment.patient.first_name}'s appointment",
-        "data": {"appointment": str(appointment.uid)}
+        "body": f"Hello {practitioner_full_name}, You have been assigned to {appointment.patient.first_name}'s appointment",
+        "data": {"appointment": appointment.uid}
     })
 
     # Push notification to patient
     await send_notification(session, appointment.patient.user_uid, {
-        "title": "Doctor Assigned",
-        "body": f"Your appointment has been assigned to Dr. {doctor.last_name}",
+        "title": " Assigned",
+        "body": f"Your appointment has been assigned to {practitioner.title}. {practitioner_full_name}",
         "data": {"appointment_uid": str(appointment.uid)}
     })
 
-    return {"message": "Doctor assigned successfully!"}
+    return {"message": "Practitioner assigned successfully!"}
 
 
-@admin_router.patch('/hospitals/{hospital_uid}/admin', status_code=status.HTTP_200_OK)
-async def approve_hospital(hospital_uid: str, payload: VerifyHospital, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+@admin_router.patch('/hospitals/approve-hospital', status_code=status.HTTP_200_OK)
+async def approve_hospital(hospital_uid: uuid.UUID, payload: VerifyHospital, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
     hospital = await hp_service.get_single_hospital(hospital_uid, session)
     
@@ -181,7 +177,7 @@ async def approve_hospital(hospital_uid: str, payload: VerifyHospital, session: 
         raise errors.HospitalNotFound()
     
     #access control
-    if current_user.admin.admin_type != AdminType.SUPER_ADMIN:
+    if (current_user.admin is not None and current_user.admin.admin_type != AdminType.SUPER_ADMIN):
         raise errors.NotAuthorized()
     
     #approve/reject hospital application

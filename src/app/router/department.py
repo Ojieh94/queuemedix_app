@@ -1,9 +1,10 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+import uuid
+from fastapi import APIRouter, Depends, status
 from src.app.core.dependencies import get_current_user
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from src.app.schemas import DepartmentRead, DepartmentCreate, DepartmentUpdate
-from src.app.models import User, Department, AdminType
+from src.app.models import User, Department
 from src.app.services import department as dept_service, hospital as hp_service
 from src.app.database.main import get_session
 from src.app.core import errors, permissions
@@ -20,8 +21,8 @@ update department
 delete department
 """
 
-@dept_router.post('/hospitals/{hospital_uid}/departments', status_code=status.HTTP_201_CREATED, response_model=Department, tags=['Hospitals'])
-async def add_department(hospital_uid: str, payload: DepartmentCreate, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+@dept_router.post('/hospitals/departments', status_code=status.HTTP_201_CREATED, response_model=Department, tags=['Hospitals'])
+async def add_department(hospital_uid: uuid.UUID, payload: DepartmentCreate, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
     #check hospital availability
     hospital = await hp_service.get_single_hospital(hospital_uid, session)
@@ -50,8 +51,8 @@ async def list_departments(skip: int = 0, limit: int = 10, search: Optional[str]
     return departments
 
 
-@dept_router.get('/departments/{department_uid}', status_code=status.HTTP_200_OK, response_model=Department)
-async def get_department(department_uid: str, session: AsyncSession = Depends(get_session)):
+@dept_router.get('/departments/department', status_code=status.HTTP_200_OK, response_model=Department)
+async def get_department(department_uid: uuid.UUID, session: AsyncSession = Depends(get_session)):
 
     department = await dept_service.get_department_by_id(department_uid, session)
     
@@ -60,8 +61,8 @@ async def get_department(department_uid: str, session: AsyncSession = Depends(ge
     
     return department
 
-@dept_router.get('/hospitals/{hospital_uid}/departments', status_code=status.HTTP_200_OK, response_model=List[DepartmentRead])
-async def get_hospital_departments(hospital_uid: str, session: AsyncSession = Depends(get_session)):
+@dept_router.get('/hospitals/departments', status_code=status.HTTP_200_OK, response_model=List[DepartmentRead])
+async def get_hospital_departments(hospital_uid: uuid.UUID, session: AsyncSession = Depends(get_session)):
 
     """This endpoint returns department belonging to a specific hospital"""
 
@@ -74,8 +75,8 @@ async def get_hospital_departments(hospital_uid: str, session: AsyncSession = De
     
     return department
 
-@dept_router.patch('/departments/{department_uid}', status_code=status.HTTP_202_ACCEPTED, response_model=Department)
-async def update_department(department_uid: str, payload: DepartmentUpdate, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+@dept_router.patch('/departments/update', status_code=status.HTTP_202_ACCEPTED, response_model=Department)
+async def update_department(department_uid: uuid.UUID, payload: DepartmentUpdate, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
     department = await dept_service.get_department_by_id(department_uid, session)
 
@@ -90,8 +91,8 @@ async def update_department(department_uid: str, payload: DepartmentUpdate, sess
     return updated_department
 
 
-@dept_router.delete('/departments/{department_uid}', status_code=status.HTTP_204_NO_CONTENT)
-async def remove_department(department_uid: str, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+@dept_router.delete('/departments/remove-department', status_code=status.HTTP_204_NO_CONTENT)
+async def remove_department(department_uid: uuid.UUID, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
     department_to_remove = await dept_service.get_department_by_id(department_uid, session)
     

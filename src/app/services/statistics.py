@@ -1,13 +1,15 @@
-from sqlalchemy import func, and_, or_, case, extract
+import uuid
+
+from sqlalchemy import func, extract
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlmodel import select
-from src.app.models import Appointment, AppointmentStatus, Department, Doctor
+from src.app.models import Appointment, AppointmentStatus, Department, Practitioner
 from typing import List, Dict, Any
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
 from src.app.schemas import HospitalAppointmentStats
 
 
-async def get_hospital_appointment_stats(hospital_uid: str, session: AsyncSession) -> HospitalAppointmentStats:
+async def get_hospital_appointment_stats(hospital_uid: uuid.UUID, session: AsyncSession) -> HospitalAppointmentStats:
     """Get core appointment statistics for a hospital"""
     today = date.today()
 
@@ -19,7 +21,7 @@ async def get_hospital_appointment_stats(hospital_uid: str, session: AsyncSessio
     # Today's appointments
     todays_stmt = select(func.count(Appointment.uid)).where(
         Appointment.hospital_uid == hospital_uid,
-        Appointment.scheduled_time.isnot(None),
+        Appointment.scheduled_time.is_not(None), #type: ignore
         func.date(Appointment.scheduled_time) == today
     )
     todays_result = await session.execute(todays_stmt)
@@ -67,18 +69,18 @@ async def get_hospital_appointment_stats(hospital_uid: str, session: AsyncSessio
     )
 
 
-async def get_hospital_time_based_stats(hospital_uid: str, session: AsyncSession) -> Dict[str, int]:
+async def get_hospital_time_based_stats(hospital_uid: uuid.UUID, session: AsyncSession) -> Dict[str, int]:
     """Get time-based appointment statistics"""
     today = date.today()
     week_start = today - timedelta(days=today.weekday())  # Monday
     week_end = week_start + timedelta(days=6)
-    month_start = today.replace(day=1)
+    # month_start = today.replace(day=1)
     next_week = today + timedelta(days=7)
 
     # This week's appointments
     week_stmt = select(func.count(Appointment.uid)).where(
         Appointment.hospital_uid == hospital_uid,
-        Appointment.scheduled_time.isnot(None),
+        Appointment.scheduled_time.isnot(None), #type: ignore
         func.date(Appointment.scheduled_time).between(week_start, week_end)
     )
     week_result = await session.execute(week_stmt)
@@ -87,9 +89,9 @@ async def get_hospital_time_based_stats(hospital_uid: str, session: AsyncSession
     # This month's appointments
     month_stmt = select(func.count(Appointment.uid)).where(
         Appointment.hospital_uid == hospital_uid,
-        Appointment.scheduled_time.isnot(None),
-        extract('year', Appointment.scheduled_time) == today.year,
-        extract('month', Appointment.scheduled_time) == today.month
+        Appointment.scheduled_time.isnot(None), #type: ignore
+        extract('year', Appointment.scheduled_time) == today.year, #type: ignore
+        extract('month', Appointment.scheduled_time) == today.month #type: ignore
     )
     month_result = await session.execute(month_stmt)
     this_month_appointments = month_result.scalar_one()
@@ -97,7 +99,7 @@ async def get_hospital_time_based_stats(hospital_uid: str, session: AsyncSession
     # Upcoming appointments (next 7 days)
     upcoming_stmt = select(func.count(Appointment.uid)).where(
         Appointment.hospital_uid == hospital_uid,
-        Appointment.scheduled_time.isnot(None),
+        Appointment.scheduled_time.isnot(None), #type: ignore
         func.date(Appointment.scheduled_time) > today,
         func.date(Appointment.scheduled_time) <= next_week
     )
@@ -111,7 +113,7 @@ async def get_hospital_time_based_stats(hospital_uid: str, session: AsyncSession
     }
 
 
-async def get_hospital_average_appointments_per_day(hospital_uid: str, session: AsyncSession) -> float:
+async def get_hospital_average_appointments_per_day(hospital_uid: uuid.UUID, session: AsyncSession) -> float:
     """Calculate average appointments per day over the last 30 days"""
     today = date.today()
     thirty_days_ago = today - timedelta(days=30)
@@ -119,7 +121,7 @@ async def get_hospital_average_appointments_per_day(hospital_uid: str, session: 
     # Count appointments in last 30 days
     count_stmt = select(func.count(Appointment.uid)).where(
         Appointment.hospital_uid == hospital_uid,
-        Appointment.scheduled_time.isnot(None),
+        Appointment.scheduled_time.isnot(None), #type: ignore
         func.date(Appointment.scheduled_time) >= thirty_days_ago
     )
     count_result = await session.execute(count_stmt)
@@ -131,7 +133,7 @@ async def get_hospital_average_appointments_per_day(hospital_uid: str, session: 
     return 0.0
 
 
-async def get_hospital_rescheduled_appointments(hospital_uid: str, session: AsyncSession) -> int:
+async def get_hospital_rescheduled_appointments(hospital_uid: uuid.UUID, session: AsyncSession) -> int:
     """Get count of rescheduled appointments"""
     stmt = select(func.count(Appointment.uid)).where(
         Appointment.hospital_uid == hospital_uid,
@@ -141,24 +143,24 @@ async def get_hospital_rescheduled_appointments(hospital_uid: str, session: Asyn
     return result.scalar_one()
 
 
-async def get_hospital_average_wait_time(hospital_uid: str, session: AsyncSession) -> float:
+async def get_hospital_average_wait_time(hospital_uid: uuid.UUID, session: AsyncSession) -> float:
     """Calculate average wait time in hours for completed appointments"""
     stmt = select(
         func.avg(
-            func.extract('epoch', Appointment.completed_time - Appointment.check_in_time) / 3600
+            func.extract('epoch', Appointment.completed_time - Appointment.check_in_time) / 3600 #type: ignore
         )
     ).where(
         Appointment.hospital_uid == hospital_uid,
         Appointment.status == AppointmentStatus.COMPLETED,
-        Appointment.check_in_time.isnot(None),
-        Appointment.completed_time.isnot(None)
+        Appointment.check_in_time.isnot(None), #type: ignore
+        Appointment.completed_time.isnot(None) #type: ignore
     )
     result = await session.execute(stmt)
     avg_wait = result.scalar_one()
     return round(avg_wait, 2) if avg_wait else 0.0
 
 
-async def get_hospital_cancellation_rate(hospital_uid: str, session: AsyncSession) -> float:
+async def get_hospital_cancellation_rate(hospital_uid: uuid.UUID, session: AsyncSession) -> float:
     """Calculate cancellation rate as percentage"""
     total_stmt = select(func.count(Appointment.uid)).where(Appointment.hospital_uid == hospital_uid)
     total_result = await session.execute(total_stmt)
@@ -177,7 +179,7 @@ async def get_hospital_cancellation_rate(hospital_uid: str, session: AsyncSessio
     return round((canceled / total) * 100, 2)
 
 
-async def get_appointments_by_department(hospital_uid: str, session: AsyncSession) -> List[Dict[str, Any]]:
+async def get_appointments_by_department(hospital_uid: uuid.UUID, session: AsyncSession) -> List[Dict[str, Any]]:
     """Get appointment counts grouped by department"""
     stmt = select(
         Department.name,
@@ -196,35 +198,35 @@ async def get_appointments_by_department(hospital_uid: str, session: AsyncSessio
     return [{"department": row.name, "count": row.count} for row in result]
 
 
-async def get_appointments_by_doctor(hospital_uid: str, session: AsyncSession) -> List[Dict[str, Any]]:
-    """Get appointment counts grouped by doctor"""
+async def get_appointments_by_practitioner(hospital_uid: uuid.UUID, session: AsyncSession) -> List[Dict[str, Any]]:
+    """Get appointment counts grouped by practitioners"""
     stmt = select(
-        Doctor.full_name,
+        Practitioner.last_name,
         func.count(Appointment.uid).label('count')
     ).join(
-        Appointment, Doctor.uid == Appointment.doctor_uid
+        Appointment, Practitioner.uid == Appointment.practitioner_uid
     ).where(
         Appointment.hospital_uid == hospital_uid,
-        Appointment.doctor_uid.isnot(None)
+        Appointment.practitioner_uid.isnot(None) #type: ignore
     ).group_by(
-        Doctor.uid, Doctor.full_name
+        Practitioner.uid, Practitioner.last_name
     ).order_by(
         func.count(Appointment.uid).desc()
     )
 
     result = await session.execute(stmt)
-    return [{"doctor": row.full_name, "count": row.count} for row in result]
+    return [{"Practitioner": row.full_name, "count": row.count} for row in result]
 
 
-async def get_top_departments_by_appointments(hospital_uid: str, session: AsyncSession, limit: int = 5) -> List[Dict[str, Any]]:
+async def get_top_departments_by_appointments(hospital_uid: uuid.UUID, session: AsyncSession, limit: int = 5) -> List[Dict[str, Any]]:
     """Get top departments by appointment volume"""
     data = await get_appointments_by_department(hospital_uid, session)
     return data[:limit]
 
 
-async def get_top_doctors_by_appointments(hospital_uid: str, session: AsyncSession, limit: int = 5) -> List[Dict[str, Any]]:
-    """Get top doctors by appointment volume"""
-    data = await get_appointments_by_doctor(hospital_uid, session)
+async def get_top_practitioners_by_appointments(hospital_uid: uuid.UUID, session: AsyncSession, limit: int = 5) -> List[Dict[str, Any]]:
+    """Get top practitioners by appointment volume"""
+    data = await get_appointments_by_practitioner(hospital_uid, session)
     return data[:limit]
 
 
@@ -240,7 +242,7 @@ async def get_patient_upcoming_appointments(patient_uid: str, session: AsyncSess
     today = date.today()
     stmt = select(func.count(Appointment.uid)).where(
         Appointment.patient_uid == patient_uid,
-        Appointment.scheduled_time.isnot(None),
+        Appointment.scheduled_time.isnot(None), #type: ignore
         func.date(Appointment.scheduled_time) >= today
     )
     result = await session.execute(stmt)

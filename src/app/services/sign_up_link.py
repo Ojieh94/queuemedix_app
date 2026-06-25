@@ -1,15 +1,25 @@
 import secrets
-from typing import Optional
+import uuid
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from datetime import datetime, timedelta
-from src.app.models import SignupLink, AdminType, User
+from src.app.models import SignupLink, AdminType, PractitionerType
 
 
-async def create_signup_link(email: str, notes: str, admin_type: AdminType, current_user: User, session: AsyncSession, department_uid: Optional[str] = None) -> str:
+async def create_admin_signup_link(email: str, notes: str, admin_type: AdminType, hospital_uid: uuid.UUID, session: AsyncSession, department_uid: uuid.UUID):
     token = secrets.token_urlsafe(32)
 
-    signup_link = SignupLink(token=token, email=email, admin_type=admin_type, hospital_uid=str(current_user.hospital.uid), notes=notes, department_uid=department_uid)
+    signup_link = SignupLink(token=token, email=email, admin_type=admin_type, hospital_uid=hospital_uid, notes=notes, department_uid=department_uid)
+
+    session.add(signup_link)
+    await session.commit()
+    
+    return token
+
+async def create_practitioner_signup_link(email: str, notes: str, type: PractitionerType, hospital_uid: uuid.UUID, department_uid: uuid.UUID, session: AsyncSession):
+    token = secrets.token_urlsafe(32)
+
+    signup_link = SignupLink(token=token, email=email, practitioner_type=type, hospital_uid=hospital_uid, notes=notes, department_uid=department_uid)
 
     session.add(signup_link)
     await session.commit()

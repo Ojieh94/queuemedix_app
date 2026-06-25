@@ -1,17 +1,18 @@
 from decimal import Decimal
-
+import uuid
+from collections.abc import Sequence
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select, or_
-from src.app.models import Hospital, Doctor, Appointment, AppointmentStatus, HospitalStatus, HospitalRating
+from src.app.models import Hospital, Practitioner, Appointment, AppointmentStatus, HospitalStatus, HospitalRating
 from typing import Optional, List
 from src.app.schemas import HospitalProfileUpdate, VerifyHospital, AssignAdminDuty
 from src.app.services import admins as ad_service
 
 
 #updating hospital profile
-async def update_hospital_profile(payload: HospitalProfileUpdate, hospital_uid: str, session: AsyncSession):
+async def update_hospital_profile(payload: HospitalProfileUpdate, hospital_uid: uuid.UUID, session: AsyncSession):
     
     hospital_to_update = await get_single_hospital(hospital_uid, session)
 
@@ -36,35 +37,35 @@ async def get_hospitals(skip: int, limit: int, session: AsyncSession, search: Op
 
     if search:
         stmt = stmt.filter(or_(
-            Hospital.hospital_name.contains(search),
-            Hospital.full_address.contains(search),
-            Hospital.state.contains(search)
+            Hospital.hospital_name.contains(search),#type: ignore
+            Hospital.full_address.contains(search),#type: ignore
+            Hospital.state.contains(search)#type: ignore
         ))
 
     if location:
         stmt = stmt.filter(or_(
-            Hospital.full_address.contains(location),
-            Hospital.state.contains(location)
-        ))
-
+            Hospital.full_address.contains(location), #type: ignore
+            Hospital.state.contains(location) #type: ignore
+        )) 
+ 
     result = await session.execute(stmt)
 
     return result.scalars().all()
 
 
-async def view_hospital_doctors(hospital_uid: str, availability: Optional[bool], session: AsyncSession):
+async def view_hospital_practitioners(hospital_uid: uuid.UUID, availability: Optional[bool], session: AsyncSession):
 
-    stmt = select(Doctor).where(Doctor.hospital_uid == hospital_uid)
+    stmt = select(Practitioner).where(Practitioner.hospital_uid == hospital_uid)
 
     if availability is not None:
-        stmt = stmt.where(Doctor.is_available == availability)
+        stmt = stmt.where(Practitioner.is_available == availability)
 
     result = await session.execute(stmt)
 
     return result.scalars().all()
 
 
-async def get_single_hospital(hospital_uid: str, session: AsyncSession):
+async def get_single_hospital(hospital_uid: uuid.UUID, session: AsyncSession):
 
     stmt = select(Hospital).where(Hospital.uid == hospital_uid).options(selectinload(Hospital.user))
 
@@ -73,7 +74,7 @@ async def get_single_hospital(hospital_uid: str, session: AsyncSession):
     return result.scalar_one_or_none()
 
 
-async def get_hospital_rating(hospital_uid: str, user_uid: str, session: AsyncSession):
+async def get_hospital_rating(hospital_uid: uuid.UUID, user_uid: uuid.UUID, session: AsyncSession):
     stmt = select(HospitalRating).where(
         HospitalRating.hospital_uid == hospital_uid,
         HospitalRating.user_uid == user_uid
@@ -82,7 +83,7 @@ async def get_hospital_rating(hospital_uid: str, user_uid: str, session: AsyncSe
     return result.scalar_one_or_none()
 
 
-async def compute_hospital_average_rating(hospital_uid: str, session: AsyncSession) -> float:
+async def compute_hospital_average_rating(hospital_uid: uuid.UUID, session: AsyncSession) -> float:
     stmt = select(func.avg(HospitalRating.rating)).where(
         HospitalRating.hospital_uid == hospital_uid
     )
@@ -91,7 +92,7 @@ async def compute_hospital_average_rating(hospital_uid: str, session: AsyncSessi
     return float(round(average, 1))
 
 
-async def rate_hospital(hospital_uid: str, user_uid: str, rating_value: float, session: AsyncSession):
+async def rate_hospital(hospital_uid: uuid.UUID, user_uid: uuid.UUID, rating_value: float, session: AsyncSession):
     hospital = await get_single_hospital(hospital_uid, session)
 
     if not hospital:
@@ -119,7 +120,7 @@ async def rate_hospital(hospital_uid: str, user_uid: str, rating_value: float, s
     return hospital
 
 
-async def view_hospital_appointments(hospital_uid: str, status: Optional[AppointmentStatus], session: AsyncSession) -> List[Appointment]:
+async def view_hospital_appointments(hospital_uid: uuid.UUID, status: Optional[AppointmentStatus], session: AsyncSession) -> Sequence[Appointment]:
 
     stmt = select(Appointment).where(Appointment.hospital_uid == hospital_uid)
 
@@ -131,7 +132,7 @@ async def view_hospital_appointments(hospital_uid: str, status: Optional[Appoint
     return result.scalars().all()
 
 
-async def delete_hospital(hospital_uid: str, session: AsyncSession):
+async def delete_hospital(hospital_uid: uuid.UUID, session: AsyncSession):
 
     hospital_to_delete = await get_single_hospital(hospital_uid, session)
 
@@ -143,7 +144,7 @@ async def delete_hospital(hospital_uid: str, session: AsyncSession):
     await session.commit()
 
 
-async def approve_hospital(hospital_uid: str, payload: VerifyHospital, session: AsyncSession):
+async def approve_hospital(hospital_uid: uuid.UUID, payload: VerifyHospital, session: AsyncSession):
         
         hospital = await get_single_hospital(hospital_uid, session)
 
@@ -160,7 +161,7 @@ async def approve_hospital(hospital_uid: str, payload: VerifyHospital, session: 
         return hospital
 
 
-async def assign_duties_to_department_admin(admin_uid: str, payload: AssignAdminDuty, session: AsyncSession):
+async def assign_duties_to_department_admin(admin_uid: uuid.UUID, payload: AssignAdminDuty, session: AsyncSession):
     
     admin = await ad_service.get_admin(admin_uid, session)
     
@@ -174,7 +175,7 @@ async def assign_duties_to_department_admin(admin_uid: str, payload: AssignAdmin
     return admin
 
 
-async def get_hospital_appointment_stats(hospital_uid: str, session: AsyncSession):
+async def get_hospital_appointment_stats(hospital_uid: uuid.UUID, session: AsyncSession):
     from datetime import date
     today = date.today()
 
@@ -186,7 +187,7 @@ async def get_hospital_appointment_stats(hospital_uid: str, session: AsyncSessio
     # Today's appointments
     todays_stmt = select(func.count(Appointment.uid)).where(
         Appointment.hospital_uid == hospital_uid,
-        Appointment.scheduled_time.isnot(None),
+        Appointment.scheduled_time.isnot(None), #type: ignore
         func.date(Appointment.scheduled_time) == today
     )
     todays_result = await session.execute(todays_stmt)

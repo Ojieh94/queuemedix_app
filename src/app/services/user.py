@@ -1,8 +1,10 @@
+import uuid
+
 from sqlalchemy import exists
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlmodel import select
-from src.app.models import User, Hospital, Doctor
+from src.app.models import User, Hospital, Practitioner
 
 
 async def get_username(username: str, session: AsyncSession):
@@ -22,10 +24,10 @@ async def get_user_email(email: str, session: AsyncSession):
             selectinload(User.admin),
             selectinload(User.patient),
             selectinload(User.hospital).selectinload(Hospital.user),
-            selectinload(User.doctor).selectinload(Doctor.user),
-            selectinload(User.doctor).selectinload(Doctor.department),
-            selectinload(User.doctor)
-            .selectinload(Doctor.hospital)
+            selectinload(User.practitioner).selectinload(Practitioner.user),
+            selectinload(User.practitioner).selectinload(Practitioner.department),
+            selectinload(User.practitioner)
+            .selectinload(Practitioner.hospital)
             .selectinload(Hospital.user),
         )
     )
@@ -64,7 +66,7 @@ async def get_all_users(skip: int, limit: int, session: AsyncSession):
     return result.scalars().all()
 
 
-async def get_user_by_id(user_id: str, session: AsyncSession):
+async def get_user_by_id(user_id: uuid.UUID, session: AsyncSession):
 
     stmt = select(User).where(User.uid == user_id)
     result = await session.execute(stmt)
@@ -72,9 +74,9 @@ async def get_user_by_id(user_id: str, session: AsyncSession):
     return result.scalar_one_or_none()
 
 
-async def delete_user(user_id: str, session: AsyncSession):
+async def delete_user(user_uid: uuid.UUID, session: AsyncSession):
 
-    user = await get_user_by_id(user_id=user_id, session=session)
+    user = await get_user_by_id(user_id=user_uid, session=session)
 
     if user is not None:
 
@@ -89,6 +91,6 @@ async def delete_user(user_id: str, session: AsyncSession):
 
 
 async def username_exists(username: str, session: AsyncSession) -> bool:
-    stmt = select(exists().where(User.username == username))
+    stmt = select(exists().where(User.username == username)) #type: ignore
     result = await session.execute(stmt)
-    return result.scalar()  # True or False
+    return result.scalar_one()  # True or False

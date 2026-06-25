@@ -12,9 +12,9 @@ from src.app.router import (
     admins, 
     appointment, 
     department, 
-    doctors, 
     hospital, 
-    medical_records, 
+    medical_records,
+    practitioners, 
     users,
     message,
     statistics, queue)
@@ -93,7 +93,7 @@ app.include_router(hospital.hp_router, prefix=f"/api/{version}")
 app.include_router(statistics.stats_router, prefix=f"/api/{version}")
 app.include_router(department.dept_router, prefix=f"/api/{version}")
 app.include_router(patients.pat_router, prefix=f"/api/{version}")
-app.include_router(doctors.doctor_router, prefix=f"/api/{version}")
+app.include_router(practitioners.practitioner_router, prefix=f"/api/{version}")
 app.include_router(appointment.apt_router, prefix=f"/api/{version}")
 app.include_router(admins.admin_router, prefix=f"/api/{version}")
 app.include_router(queue.queue_router, prefix=f"/api/{version}")

@@ -102,7 +102,7 @@ def send_test(email: str,):
     """
     Sends a testing email.
     """
-    link = f"https://www.google.com"
+    link = "https://www.google.com"
 
     # HTML body
     body_html = f"""
@@ -148,6 +148,9 @@ def appointment_success(email: str, user: User, appt_date: datetime, hospital: H
     """
     Sends a friendly confirmation email after successfully booking an appointment.
     """
+
+    if not user.patient:
+        return
 
     name = f"{user.patient.first_name} {user.patient.last_name}"
     hospital_name = hospital.hospital_name
@@ -205,11 +208,14 @@ def appointment_success(email: str, user: User, appt_date: datetime, hospital: H
     celery.send_email_task.delay(email_list, subject, body_html)
 
 
-def appointment_notification_hospital(email: str, patient: User, appt_date: datetime):
+def appointment_notification_hospital(email: str, user: User, appt_date: datetime):
     """
     Sends an email notification to the hospital when a patient books an appointment.
     """
-    patient_name = f"{patient.patient.first_name} {patient.patient.last_name}"
+    if not user.patient:
+        return
+
+    patient_name = f"{user.patient.first_name} {user.patient.last_name}"
 
     body_html = f"""
     <html>
@@ -253,6 +259,8 @@ def appointment_canceled(email: str, user: User, appt_date: datetime, hospital: 
     """
     Sends an email after an appointment is canceled.
     """
+    if not user.patient:
+        return
 
     name = f"{user.patient.first_name} {user.patient.last_name}"
     hospital_name = hospital.hospital_name
@@ -368,7 +376,7 @@ def appointment_rescheduled(email: str, name: str, hospital_name: str, old_date:
 
 
 
-def hospital_admin_invite(email: str, hospital_name: str, signup_link: str):
+def hospital_admin_invite(email: str, hospital_name: str, note: str, signup_link: str):
     """
     Sends an email invitation to a hospital admin with a secure signup link.
     """
@@ -409,7 +417,9 @@ def hospital_admin_invite(email: str, hospital_name: str, signup_link: str):
             </p>
 
             <p style="font-size: 16px; color: #374151;">
-                If you did not expect this invitation, please ignore this email.
+                Note: {note}
+                
+                <span style="font-size: 12px; font-style: italic">If you did not expect this invitation, please ignore this email.</span>
             </p>
         </div>
 
@@ -424,5 +434,65 @@ def hospital_admin_invite(email: str, hospital_name: str, signup_link: str):
     """
 
     subject = f"Hospital Admin Invitation – {hospital_name}"
+
+    celery.send_email_task.delay([email], subject, body_html)
+
+
+def hospital_practitioner_invite(email: str, hospital_name: str, note: str, signup_link: str):
+    """
+    Sends an email invitation to a hospital admin with a secure signup link.
+    """
+
+    body_html = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; background-color: #f9fafb; padding: 20px;">
+        <div style="max-width: 600px; margin: auto; background-color: #ffffff;
+                    border-radius: 8px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+
+            <h2 style="color: #2563eb; text-align: center;">🎉 You’ve Been Invited!</h2>
+
+            <p style="font-size: 16px; color: #374151;">
+                Dear Sir/Ma,
+            </p>
+
+            <p style="font-size: 16px; color: #374151;">
+                <strong>{hospital_name}</strong> has added you as part of her consultation team on our healthcare platform. To complete your registration and activate your account, please click the secure link below:
+            </p>
+
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{signup_link}" 
+                   style="background-color: #2563eb; color: #ffffff; text-decoration: none;
+                          padding: 12px 24px; border-radius: 6px; font-size: 16px;">
+                   Complete Your Registration
+                </a>
+            </div>
+
+            <p style="font-size: 16px; color: #374151;">
+                This link is unique to you and will expire in <strong>24 hours</strong> for security reasons.  
+                If the button doesn’t work, you can copy and paste this link into your Chrome browser or any other you prefer:
+            </p>
+
+            <p style="font-size: 14px; color: #1d4ed8; word-break: break-all;">
+                {signup_link}
+            </p>
+
+            <p style="font-size: 16px; color: #374151;">
+                Note: {note}
+                
+                <span style="font-size: 12px; font-style: italic">If you did not expect this invitation, please ignore this email or reach out to your hospital administration.</span>
+            </p>
+        </div>
+
+        <div style="max-width: 600px; margin: auto; padding: 20px; text-align: center;">
+            <p style="font-size: 14px; color: #6b7280;">
+                This is an automated message from the Appointment System.  
+                Please do not reply to this email.
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+    subject = f"Practitioner Registration Invitation – {hospital_name}"
 
     celery.send_email_task.delay([email], subject, body_html)

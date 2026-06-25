@@ -1,14 +1,15 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
+import uuid
 
 from src.app.models import Admin, Hospital
-from src.app.schemas import AdminProfileUpdate, RegisterAdminUser
+from src.app.schemas import AdminProfileUpdate
 
 
-async def get_admin(admin_id: str, session: AsyncSession):
+async def get_admin(admin_uid: uuid.UUID, session: AsyncSession):
 
-   stmt = select(Admin).where(Admin.uid == admin_id).options(
+   stmt = select(Admin).where(Admin.uid == admin_uid).options(
        selectinload(Admin.user),
        selectinload(Admin.hospital).selectinload(Hospital.user),
        selectinload(Admin.department)
@@ -29,9 +30,9 @@ async def get_admins(skip: int, limit: int, session: AsyncSession):
 
    return result.scalars().all()
 
-async def get_hospital_admins(hospital_id: str, session: AsyncSession):
+async def get_hospital_admins(hospital_uid: uuid.UUID, session: AsyncSession):
 
-   stmt = select(Admin).where(Admin.hospital_uid == hospital_id).options(
+   stmt = select(Admin).where(Admin.hospital_uid == hospital_uid).options(
        selectinload(Admin.user),
        selectinload(Admin.hospital).selectinload(Hospital.user),
        selectinload(Admin.department)
@@ -40,8 +41,8 @@ async def get_hospital_admins(hospital_id: str, session: AsyncSession):
 
    return result.scalars().all()
 
-async def update_admin(admin_id: str, update_data: AdminProfileUpdate, session: AsyncSession):
-    admin_to_update = await get_admin(admin_id=admin_id, session=session)
+async def update_admin(admin_uid: uuid.UUID, update_data: AdminProfileUpdate, session: AsyncSession):
+    admin_to_update = await get_admin(admin_uid, session)
 
     if admin_to_update is not None:
       update_data_dict = update_data.model_dump(exclude_unset=True)
@@ -57,9 +58,9 @@ async def update_admin(admin_id: str, update_data: AdminProfileUpdate, session: 
       return None
 
 
-async def delete_admin(admin_id: str, session: AsyncSession):
+async def delete_admin(admin_uid: uuid.UUID, session: AsyncSession):
 
-    admin = await get_admin(admin_id=admin_id, session=session)
+    admin = await get_admin(admin_uid, session)
 
     if admin is not None:
 
