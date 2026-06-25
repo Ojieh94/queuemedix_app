@@ -1,7 +1,5 @@
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException, status
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlmodel import select
-from src.app.models import Message
 from src.app.schemas import MessageCreate, MessageUpdate, MessageRead, DataPlusMessage
 from src.app.services import message as m_service, user as user_service
 from src.app.database.main import get_session
@@ -47,7 +45,7 @@ async def websocket_dm(
     hospital_uid: str
 ):
     """
-    WebSocket endpoint for doctor-patient DM.
+    WebSocket endpoint for practitioner-patient DM.
     Only listens for new messages broadcasted to this room.
     Clients do NOT send messages here (REST handles that).
     """
@@ -89,7 +87,7 @@ async def edit_message(message_uid: str, payload: MessageUpdate, session: AsyncS
     if current_user.uid != message.sender_uid:
         raise errors.NotAuthorized()
     
-    edited_message = await m_service.edit_message(message_uid, payload.content, session)
+    edited_message = await m_service.edit_message(message_uid, payload, session)
 
     return edited_message
 

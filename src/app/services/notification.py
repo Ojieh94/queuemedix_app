@@ -1,9 +1,11 @@
+import uuid
+
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from src.app.models import Notification
 from src.app.websocket.connection_manager import manager
 
 
-async def send_notification(session: AsyncSession, user_uid: str, payload: dict):
+async def send_notification(session: AsyncSession, user_uid: uuid.UUID, payload: dict):
     """
     Store a notification in DB and broadcast in real-time.
     """

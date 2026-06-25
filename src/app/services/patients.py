@@ -1,12 +1,13 @@
+import uuid
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select, or_
-from src.app.models import Patient, User
+from src.app.models import Patient
 from typing import Optional
 from src.app.schemas import PatientProfileUpdate
 
 
-async def get_patient(patient_uid: str, session: AsyncSession):
+async def get_patient(patient_uid: uuid.UUID, session: AsyncSession):
     
     stmt = select(Patient).where(Patient.uid == patient_uid).options(selectinload(Patient.user))
 
@@ -14,7 +15,7 @@ async def get_patient(patient_uid: str, session: AsyncSession):
 
     return result.scalar_one_or_none()
 
-async def get_patient_by_user_uid(user_uid: str, session: AsyncSession) -> Patient | None:
+async def get_patient_by_user_uid(user_uid: uuid.UUID, session: AsyncSession) -> Patient | None:
     
     stmt = select(Patient).where(Patient.user_uid == user_uid)
 
@@ -24,7 +25,7 @@ async def get_patient_by_user_uid(user_uid: str, session: AsyncSession) -> Patie
 
 
 
-async def update_patient(payload: PatientProfileUpdate, patient_uid: str, session: AsyncSession):
+async def update_patient(payload: PatientProfileUpdate, patient_uid: uuid.UUID, session: AsyncSession):
     
     patient_to_update = await get_patient(patient_uid, session)
 
@@ -50,7 +51,7 @@ async def get_all_patients(skip: int, limit: int, search: Optional[str], session
     stmt = select(Patient).offset(skip).limit(limit).options(selectinload(Patient.user))
 
     if search:
-        stmt = stmt.filter(or_(Patient.first_name.contains(search), Patient.last_name.contains(search), Patient.hospital_card_id.contains(search)))
+        stmt = stmt.filter(or_(Patient.first_name.contains(search), Patient.last_name.contains(search), Patient.hospital_card_id.contains(search))) #type: ignore
 
     result = await session.execute(stmt)
 
@@ -66,7 +67,7 @@ async def get_patient_by_card(card_id: str, session: AsyncSession):
     return result.scalar_one_or_none()
 
 
-async def delete_patient(patient_uid: int, session: AsyncSession):
+async def delete_patient(patient_uid: uuid.UUID, session: AsyncSession):
 
     patient_to_delete = await get_patient(patient_uid, session)
 

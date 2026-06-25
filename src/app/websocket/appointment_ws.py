@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, asc
@@ -10,11 +12,11 @@ from src.app.core.utils import remaining_time
 router = APIRouter(prefix="/ws", tags=["Appointments", "Websockets"])
 
 @router.websocket("/appointments/{hospital_uid}")
-async def appointments_ws(websocket: WebSocket, hospital_uid: str, session: AsyncSession = Depends(get_session)):
+async def appointments_ws(websocket: WebSocket, hospital_uid: uuid.UUID, session: AsyncSession = Depends(get_session)):
     """
     WebSocket endpoint that streams appointment queue updates filtered by hospital.
     """
-    await manager.connect(websocket, "appointments", hospital_uid)
+    await manager.connect(websocket, "appointments", str(hospital_uid))
 
     try:
         # Send initial queue data when a client connects
@@ -23,10 +25,10 @@ async def appointments_ws(websocket: WebSocket, hospital_uid: str, session: Asyn
         while True:
             await websocket.receive_text()  # keep alive
     except WebSocketDisconnect:
-        manager.disconnect(websocket, "appointments", hospital_uid)
+        manager.disconnect(websocket, "appointments", str(hospital_uid))
 
 
-async def notify_queue_update(session: AsyncSession, hospital_uid: str):
+async def notify_queue_update(session: AsyncSession, hospital_uid: uuid.UUID):
     """
     Sends updated queue only to clients connected to the specific hospital.
     """
@@ -35,7 +37,7 @@ async def notify_queue_update(session: AsyncSession, hospital_uid: str):
         select(Appointment)
         .options(selectinload(Appointment.patient))
         .where(Appointment.hospital_uid == hospital_uid)
-        .order_by(asc(Appointment.scheduled_time))
+        .order_by(asc(Appointment.scheduled_time)) #type: ignore
     )
 ).scalars().all()
 
@@ -44,20 +46,20 @@ async def notify_queue_update(session: AsyncSession, hospital_uid: str):
             "id": appt.uid,
             "patient": f"{appt.patient.first_name} {appt.patient.last_name}",
             "patient_id": appt.patient_uid,
-            "time": appt.scheduled_time.isoformat(),
+            "time": appt.scheduled_time.isoformat(), #type: ignore
             "status": appt.status.value,
-            "appointment_due": remaining_time(appt.scheduled_time),
+            "appointment_due": remaining_time(appt.scheduled_time), #type: ignore
         }
         for appt in queue
     ]
 
-    await manager.broadcast("appointments", hospital_uid, {
+    await manager.broadcast("appointments", str(hospital_uid), {
         "type": "queue_update",
         "data": queue_data
     })
 
 
-async def send_initial_queue(websocket: WebSocket, session: AsyncSession, hospital_uid: str):
+async def send_initial_queue(websocket: WebSocket, session: AsyncSession, hospital_uid: uuid.UUID):
     """
     Sends the current queue to a newly connected WebSocket client for a specific hospital.
     """
@@ -65,7 +67,7 @@ async def send_initial_queue(websocket: WebSocket, session: AsyncSession, hospit
         await session.execute(
             select(Appointment)
             .where(Appointment.hospital_uid == hospital_uid)
-            .order_by(asc(Appointment.scheduled_time))
+            .order_by(asc(Appointment.scheduled_time)) #type: ignore
         )
     ).scalars().all()
 
@@ -74,9 +76,9 @@ async def send_initial_queue(websocket: WebSocket, session: AsyncSession, hospit
             "id": appt.uid,
             "patient": f"{appt.patient.first_name} {appt.patient.last_name}",
             "patient_id": appt.patient_uid,
-            "time": appt.scheduled_time.isoformat(),
+            "time": appt.scheduled_time.isoformat(), #type: ignore
             "status": appt.status.value,
-            "appointment_due": remaining_time(appt.scheduled_time),
+            "appointment_due": remaining_time(appt.scheduled_time), #type: ignore
         }
         for appt in queue
     ]

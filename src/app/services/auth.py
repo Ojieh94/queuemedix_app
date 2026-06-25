@@ -106,7 +106,7 @@ async def register_practitioners(payload: RegisterPractitionerUser, token: str, 
     model_dict = payload.model_dump()
 
     # Create base user
-    new_user = User(**model_dict, username=generate_username(payload.role.value))
+    new_user = User(**model_dict, username=generate_username(signup_link.practitioner_type.value))
 
     new_user.hashed_password = hash_password(payload.password)
     new_user.is_active = True  
@@ -121,6 +121,7 @@ async def register_practitioners(payload: RegisterPractitionerUser, token: str, 
             first_name=" ",
             middle_name="",
             last_name="",
+            title="",
             phone_number=" ",
             date_of_birth=date.today(),
             gender=" ",
@@ -130,7 +131,7 @@ async def register_practitioners(payload: RegisterPractitionerUser, token: str, 
             practitioner_type=signup_link.practitioner_type,
             hospital_uid=signup_link.hospital_uid,
             department_uid=signup_link.department_uid,
-            license_number=f"PendingDoctorLicense-{new_user.uid}",
+            license_number=f"PendingPractitionerLicense-{new_user.uid}",
             specialization=" ",
             qualification=" ",
             years_of_experience=0

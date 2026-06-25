@@ -66,7 +66,7 @@ async def get_chat_history(other_user_id: str, session: AsyncSession, current_us
             ((Message.sender_uid == current_user.uid) & (Message.receiver_uid == other_user_id)) |
             ((Message.sender_uid == other_user_id) & (Message.receiver_uid == current_user.uid))
         )
-        .order_by(Message.timestamp)
+        .order_by(Message.timestamp) #type: ignore
     )
 
     return result.scalars().all()

@@ -1,9 +1,10 @@
 from typing import Optional
+import uuid
 from sqlalchemy import func, or_, desc, asc
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
-from src.app.models import Practitioner, PractitionerStatus, Hospital, PractitionerType
+from src.app.models import PractitionerStatus, Hospital, PractitionerType, Practitioner
 from src.app.schemas import PractitionerProfileUpdate
 
 
@@ -79,7 +80,7 @@ async def get_all_practitioners(skip: int, limit: int, practitioner_type: Practi
    return result.scalars().all()
 
 
-async def get_pending_practitioners(hospital_id: str, type: PractitionerType | None, skip: int, limit: int, session: AsyncSession):
+async def get_pending_practitioners(hospital_id: uuid.UUID, type: PractitionerType | None, skip: int, limit: int, session: AsyncSession):
     
     stmt = select(Practitioner).where(Practitioner.hospital_uid == hospital_id, 
                                 Practitioner.status == PractitionerStatus.UNDER_REVIEW).offset(skip).limit(limit).options(
@@ -95,7 +96,7 @@ async def get_pending_practitioners(hospital_id: str, type: PractitionerType | N
 
     return result.scalars().all()
 
-async def get_practitioner(practitioner_id: str, session: AsyncSession):
+async def get_practitioner(practitioner_id: uuid.UUID, session: AsyncSession):
 
    stmt = select(Practitioner).where(Practitioner.uid == practitioner_id).options(
        selectinload(Practitioner.user),
@@ -107,7 +108,7 @@ async def get_practitioner(practitioner_id: str, session: AsyncSession):
    return result.scalar_one_or_none()
 
 
-async def change_practitioner_availability(practitioner_id: str, session: AsyncSession):
+async def change_practitioner_availability(practitioner_id: uuid.UUID, session: AsyncSession):
 
    practitioner = await get_practitioner(practitioner_id=practitioner_id, session=session)
 
@@ -121,7 +122,7 @@ async def change_practitioner_availability(practitioner_id: str, session: AsyncS
    
 
 
-async def approve_practitioner(practitioner_id: str, session: AsyncSession, status: PractitionerStatus):
+async def approve_practitioner(practitioner_id: uuid.UUID, session: AsyncSession, status: PractitionerStatus):
    practitioner_to_approve = await get_practitioner(practitioner_id=practitioner_id, session=session)
 
    if practitioner_to_approve is not None:
@@ -135,7 +136,7 @@ async def approve_practitioner(practitioner_id: str, session: AsyncSession, stat
       return None
    
        
-async def update_practitioner_info(practitioner_id: str, update_data: PractitionerProfileUpdate, session: AsyncSession):
+async def update_practitioner_info(practitioner_id: uuid.UUID, update_data: PractitionerProfileUpdate, session: AsyncSession):
     practitioner_to_update = await get_practitioner(practitioner_id=practitioner_id, session=session)
 
     if practitioner_to_update is not None:
@@ -152,7 +153,7 @@ async def update_practitioner_info(practitioner_id: str, update_data: Practition
     return None
 
 
-async def delete_practitioner(practitioner_id: str, session: AsyncSession):
+async def delete_practitioner(practitioner_id: uuid.UUID, session: AsyncSession):
     
     practitioner = await get_practitioner(practitioner_id=practitioner_id, session=session)
 

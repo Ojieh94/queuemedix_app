@@ -1,5 +1,6 @@
 # from pydoc import doc
 from typing import List
+import uuid
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from src.app.models import AdminType, PractitionerStatus, User, UserRoles, PractitionerType
@@ -101,9 +102,9 @@ async def get_all_practitioners(
 
 
 @practitioner_router.get('/practitioner', status_code=status.HTTP_200_OK, response_model=PractitionerRead)
-async def get_practitioner(practitioner_id: str, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+async def get_practitioner(practitioner_id: uuid.UUID, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
     
-    """Protected endpoint to get a doctor by uuid"""
+    """Protected endpoint to get a practitioner by uuid"""
 
 
     practitioner = await pract_services.get_practitioner(practitioner_id=practitioner_id, session=session)
@@ -128,9 +129,9 @@ async def get_practitioner(practitioner_id: str, session: AsyncSession = Depends
     
 
 @practitioner_router.get("/pending-practitioners", status_code=status.HTTP_200_OK, response_model=List[PractitionerRead])
-async def get_pending_practitioners(hospital_id: str, skip: int = 0, limit: int = 10, type: PractitionerType | None = None, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+async def get_pending_practitioners(hospital_id: uuid.UUID, skip: int = 0, limit: int = 10, type: PractitionerType | None = None, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
-    """Protected endpoint for only hospital and their admins to check doctors that have not been approved by hospital (pending approval)"""
+    """Protected endpoint for only hospital and their admins to check practitioners that have not been approved by hospital (pending approval)"""
     
     is_hospital_admin = (
         current_user.admin is not None
@@ -157,7 +158,7 @@ async def get_pending_practitioners(hospital_id: str, skip: int = 0, limit: int 
 
 
 @practitioner_router.patch("/practitioner-status", status_code=status.HTTP_202_ACCEPTED)
-async def update_practitioner_status(practitioner_id: str, status: PractitionerStatus, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+async def update_practitioner_status(practitioner_id: uuid.UUID, status: PractitionerStatus, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
     """Protected endpoint for hospital admins and hospital to approve practitioners after vetting
     
@@ -195,12 +196,12 @@ async def update_practitioner_status(practitioner_id: str, status: PractitionerS
 
 
 @practitioner_router.patch("/availability", status_code=status.HTTP_202_ACCEPTED)
-async def change_practitioner_availability(practitioner_id: str, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+async def change_practitioner_availability(practitioner_id: uuid.UUID, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
     """Protected endpoint for hospital admins, department admins and hospitals, self-practitioners to change practitioners availability
     """
 
-    # if current_user.role not in [UserRoles.ADMIN, UserRoles.HOSPITAL, UserRoles.DOCTOR]:
+    # if current_user.role not in [UserRoles.ADMIN, UserRoles.HOSPITAL, UserRoles.PRACTITIONER]:
     #     raise errors.RoleCheckAccess()
     
     practitioner_to_update = await pract_services.get_practitioner(practitioner_id=practitioner_id, session=session)
@@ -245,8 +246,8 @@ async def change_practitioner_availability(practitioner_id: str, session: AsyncS
     
 
 @practitioner_router.patch("/profile-update", status_code=status.HTTP_202_ACCEPTED, response_model=PractitionerRead)
-async def update_practitioner_profile(practitioner_id: str, update_data: PractitionerProfileUpdate, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
-    """Protected endpoint for updating doctors profile"""
+async def update_practitioner_profile(practitioner_id: uuid.UUID, update_data: PractitionerProfileUpdate, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+    """Protected endpoint for updating practitioners profile"""
 
     if current_user.role != UserRoles.PRACTITIONER:
         raise errors.RoleCheckAccess()

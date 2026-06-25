@@ -1,8 +1,7 @@
 import sqlalchemy.dialects.postgresql as pg
 import uuid
 from sqlmodel import SQLModel, Field, Relationship, ForeignKey, Column
-from sqlalchemy.orm import Mapped
-from sqlalchemy import Integer, String, DateTime, Enum as pgEnum, Text
+from sqlalchemy import String, DateTime, Enum as pgEnum, Text
 from datetime import datetime, timezone, date
 from enum import Enum
 from typing import Optional, List
@@ -125,13 +124,13 @@ class User(SQLModel, table=True):
         back_populates="sender", sa_relationship_kwargs={"foreign_keys": "[Message.sender_uid]"})
     received_messages: List["Message"] = Relationship(
         back_populates="receiver", sa_relationship_kwargs={"foreign_keys": "[Message.receiver_uid]"})
-    hospital: Mapped["Hospital"] | None = Relationship(
+    hospital: Optional["Hospital"] = Relationship(
         back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
     admin: Optional["Admin"] = Relationship(
         back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
     patient: Optional["Patient"] = Relationship(
         back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
-    practitioner: Mapped["Practitioner"] | None = Relationship(
+    practitioner: Optional["Practitioner"] = Relationship(
         back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
     notifications: List["Notification"] = Relationship(
         back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
@@ -174,7 +173,7 @@ class Hospital(SQLModel, table=True):
         return f"<Hospital uid={self.uid}, hospital_name={self.hospital_name}>"
 
     # Relationship
-    user: Mapped["User"] = Relationship(
+    user: "User" = Relationship(
         back_populates="hospital", sa_relationship_kwargs={"lazy": "selectin"})
     practitioner: List["Practitioner"] = Relationship(back_populates="hospital", sa_relationship_kwargs={
                                           "lazy": "selectin"}, passive_deletes=True)
@@ -240,12 +239,8 @@ class HospitalRating(SQLModel, table=True):
     user_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
         "users.uid", ondelete="CASCADE"), nullable=False, index=True))
     rating: float = Field(sa_column=Column(pg.NUMERIC(2,1), nullable=False))
-    created_at: datetime = Field(
-        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    )
-    updated_at: datetime = Field(
-        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
 
     hospital: "Hospital" = Relationship(back_populates="ratings", sa_relationship_kwargs={"lazy": "selectin"})
     user: "User" = Relationship(back_populates="ratings", sa_relationship_kwargs={"lazy": "selectin"})
@@ -259,6 +254,7 @@ class Practitioner(SQLModel, table=True):
     first_name: str = Field(default=None)
     middle_name: Optional[str] = Field(default=None)
     last_name: str = Field(default=None)
+    title: str = Field(default=None)
     phone_number: str = Field(default=None)
     date_of_birth: Optional[date] = Field(default=None)
     gender: str = Field(default=None)
@@ -287,15 +283,15 @@ class Practitioner(SQLModel, table=True):
         return f"<Pracitioner uid={self.uid}, Practitioner first_name={self.first_name}, Practitioner's last_name={self.last_name}>"
 
     # Relationship
-    user: Mapped["User"] = Relationship(
+    user: "User" = Relationship(
         back_populates="practitioner", sa_relationship_kwargs={"lazy": "selectin"})
-    hospital: Mapped["Hospital"] = Relationship(
+    hospital: "Hospital" = Relationship(
         back_populates="practitioner", sa_relationship_kwargs={"lazy": "selectin"})
-    appointment: Mapped[List["Appointment"]] = Relationship(
+    appointment: List["Appointment"] = Relationship(
         back_populates="practitioner", sa_relationship_kwargs={"lazy": "selectin"}, passive_deletes=True)
-    department: Mapped["Department"] = Relationship(
+    department: "Department" = Relationship(
         back_populates="practitioners", sa_relationship_kwargs={"lazy": "selectin"})
-    medical_record: Mapped[List["MedicalRecord"]] = Relationship(
+    medical_record: List["MedicalRecord"] = Relationship(
         back_populates="practitioner", sa_relationship_kwargs={"lazy": "selectin"}, passive_deletes=True)
 
 
@@ -342,8 +338,7 @@ class Appointment(SQLModel, table=True):
     hospital_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
         "hospitals.uid", ondelete="CASCADE"), nullable=False, index=True))
     appointment_note: str
-    scheduled_time: Optional[datetime] = Field(
-        sa_column=Column(DateTime(timezone=True), nullable=True))
+    scheduled_time: Optional[datetime] = Field(sa_column=Column(DateTime(timezone=True), nullable=True))
     check_in_time: Optional[datetime] = Field(
         sa_column=Column(DateTime(timezone=True), nullable=True))
     completed_time: Optional[datetime] = Field(
@@ -356,10 +351,7 @@ class Appointment(SQLModel, table=True):
         "departments.uid", ondelete="CASCADE"), nullable=False, index=True))
     rescheduled_from: Optional[datetime] = Field(
         sa_column=Column(DateTime(timezone=True), nullable=True))
-    created_at: datetime = Field(
-        sa_column=Column(DateTime(timezone=True),
-                         default=lambda: datetime.now(timezone.utc))
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
     updated_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True),
                          default=lambda: datetime.now(timezone.utc))
@@ -394,10 +386,7 @@ class RescheduleHistory(SQLModel, table=True):
     reason: Optional[str] = Field(default=None, max_length=255)
     rescheduled_by: Optional[uuid.UUID] = Field(
         default=None)  # Could be doctor/hospital admin ID
-    rescheduled_at: datetime = Field(
-        sa_column=Column(DateTime(timezone=True),
-                         default=lambda: datetime.now(timezone.utc))
-    )
+    rescheduled_at: datetime = Field(default=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
 
     # Optional relationships
     appointment: Optional["Appointment"] = Relationship(
@@ -450,7 +439,7 @@ class MedicalRecord(SQLModel, table=True):
         "patients.uid", ondelete="CASCADE"), nullable=False, index=True))
     practitioner_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
         "practitioners.uid", ondelete="CASCADE"), nullable=False, index=True))
-    hospital_uid: Optional[uuid.UUID] = Field(sa_column=Column(pg.UUID(
+    hospital_uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(pg.UUID(
         as_uuid=True), ForeignKey("hospitals.uid", ondelete="CASCADE"), nullable=True, index=True))
     record_type: RecordType = Field(default=RecordType.PRESCRIPTION, sa_column=Column(
         pgEnum(RecordType, values_callable=lambda enum: [e.value for e in enum], name="record_type"), nullable=True))
@@ -514,14 +503,14 @@ class SignupLink(SQLModel, table=True):
         pg.UUID(as_uuid=True), primary_key=True, index=True))
     token: str = Field(sa_column=Column(String, unique=True, index=True))
     email: str = Field(sa_column=Column(String, nullable=False))
-    hospital_uid: uuid.UUID = Field(sa_column=Column(String, nullable=False))
-    department_uid: uuid.UUID = Field(sa_column=Column(String, nullable=True))
+    hospital_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), nullable=False))
+    department_uid: uuid.UUID | None = Field(default=None,sa_column=Column(pg.UUID(as_uuid=True),nullable=True))
     admin_type: AdminType = Field(default=AdminType.HOSPITAL_ADMIN, sa_column=Column(
         pgEnum(AdminType, values_callable=lambda enum: [e.value for e in enum], name="admin_type"), nullable=False))
     practitioner_type: PractitionerType = Field(default=PractitionerType.DOCTOR, sa_column=Column(pgEnum(PractitionerType, values_callable=lambda enum: [e.value for e in enum], name="practitioner_type"), nullable=False))
     notes: Optional[str] = None
     is_used: bool = Field(default=False)
-    created_at: datetime = Field(default=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
 
     def __repr__(self):
         return f"<SignupLink: uid={self.uid}, email= {self.email}, is_used={self.is_used}>"
@@ -551,11 +540,8 @@ class Message(SQLModel, table=True):
         "users.uid", ondelete="CASCADE"), nullable=False, index=True))
     receiver_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
         "users.uid", ondelete="CASCADE"), nullable=False, index=True))
-    content: str
-    timestamp: datetime = Field(
-        sa_column=Column(DateTime(timezone=True),
-                         default=lambda: datetime.now(timezone.utc))
-    )
+    content: Optional[str] = Field(default=None)
+    timestamp: datetime = Field(default=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
     is_read: bool = Field(default=False)
     is_edited: bool = Field(default=False)
 
@@ -621,9 +607,8 @@ class Notification(SQLModel, table=True):
     data: dict = Field(default_factory=dict,
                        sa_column=Column(pg.JSONB, nullable=False))
     is_read: bool = Field(default=False)
-    timestamp: datetime = Field(
-        sa_column=Column(DateTime(timezone=True),
-                         default=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True))
     )
 
     user: "User" = Relationship(

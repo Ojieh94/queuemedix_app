@@ -2,7 +2,7 @@ from pydantic import AfterValidator, BaseModel, EmailStr, field_validator, Confi
 import uuid
 from datetime import datetime, date
 from typing import Annotated, Optional
-from src.app.models import AdminTypeUpdate, UserRoles, HospitalType, AdminType, AppointmentStatus, RecordType, PractitionerStatus, HospitalStatus
+from src.app.models import AdminTypeUpdate, UserRoles, HospitalType, AdminType, AppointmentStatus, RecordType, PractitionerStatus, HospitalStatus, PractitionerType
 from src.app import validators
 
 ######### ............Department Model.............###########
@@ -244,6 +244,7 @@ class PractitionerBase(BaseModel):
     qualification: str
     bio: Optional[str] = None
     is_available: bool = True
+    practitioner_type: PractitionerType
 
 
 class PractitionerProfileCreate(PractitionerBase):
@@ -279,6 +280,7 @@ class PractitionerRead(PractitionerBase):
     hospital: HospitalResponse | None
     department: DepartmentResponse | None
     user: UserProfile | None
+    practitioner_type: PractitionerType
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -292,6 +294,7 @@ class PractitionerResponse(BaseModel):
     is_available: bool = True
     user: UserProfile | None
     department: DepartmentResponse | None
+    practitioner_type: PractitionerType
 
     model_config = ConfigDict(from_attributes=True)
 

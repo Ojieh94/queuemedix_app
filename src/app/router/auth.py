@@ -9,7 +9,7 @@ from datetime import timedelta, datetime, timezone
 from src.app.schemas import RegisterUser, LoginData, EmailModel, RegisterAdminUser, RegisterPractitionerUser
 from src.app.database.main import get_session
 from src.app.models import User, AdminType, PractitionerType
-from src.app.services import user as user_service, auth as auth_service, sign_up_link as link_service, hospital as hp_service
+from src.app.services import user as user_service, auth as auth_service, sign_up_link as link_service, hospital as hp_service, department as dpt_service
 from src.app.core.dependencies import get_current_user, refresh_token
 from src.app.core import celery, errors, settings, redis, mails
 from src.app import schemas
@@ -74,7 +74,7 @@ async def register_user(payload: RegisterUser, session: AsyncSession = Depends(g
     }
 
 
-@auth_router.post("/auth/signup/pracitioners", status_code=status.HTTP_201_CREATED)
+@auth_router.post("/auth/register/pracitioners", status_code=status.HTTP_201_CREATED)
 async def register_practitioners(payload: RegisterPractitionerUser, token: str, session: AsyncSession = Depends(get_session)):
 
     """
@@ -98,7 +98,7 @@ async def register_practitioners(payload: RegisterPractitionerUser, token: str, 
 
 
 ### ADMIN SESSION
-@auth_router.post("/auth/signup/hospital_admin", status_code=status.HTTP_201_CREATED)
+@auth_router.post("/auth/register/hospital_admin", status_code=status.HTTP_201_CREATED)
 async def admin_signup(payload: RegisterAdminUser, token: str, session: AsyncSession = Depends(get_session)):
 
     """
@@ -121,7 +121,7 @@ async def admin_signup(payload: RegisterAdminUser, token: str, session: AsyncSes
     }
 
 
-@auth_router.post("/auth/signup/super-admin", status_code=status.HTTP_201_CREATED)
+@auth_router.post("/auth/register/super-admin", status_code=status.HTTP_201_CREATED)
 async def super_admin_signup(payload: RegisterAdminUser, session: AsyncSession = Depends(get_session)):
 
     
@@ -407,13 +407,17 @@ async def send_email(email: EmailModel):
     return {"message": "email sent successfully!"}
 
 
-@auth_router.post("/auth/signup_link", tags=["Unique Signup Link Generator"])
+@auth_router.post("/auth/practitioner-signup_link", tags=["Unique Signup Link Generator"])
 async def generate_practitioner_signup_link(email: str, notes: str, type: PractitionerType, request: Request, department_uid: uuid.UUID, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
 
+    department = await dpt_service.get_department_by_id(department_uid, session)
+    if not department:
+        raise errors.DepartmentNotFound()
+    
     if not current_user.hospital:
-        raise errors.HospitalNotFound()
+        raise errors.HospitalNotFound
 
-    token = await link_service.create_practitioner_signup_link(email, notes, type, current_user.hospital.uid, department_uid, session)
+    token = await link_service.create_practitioner_signup_link(email, notes, type, current_user.hospital.uid, department_uid, session) 
 
     # Construct the full URL based on request
     base_url = str(request.base_url).rstrip("/")
@@ -421,23 +425,27 @@ async def generate_practitioner_signup_link(email: str, notes: str, type: Practi
     signup_link = f"{base_url}{signup_path}?token={token}"
 
     #forward the link to the admin's email
-    mails.hospital_practitioner_invite(email, current_user.hospital.hospital_name, notes, signup_link)
+    # mails.hospital_practitioner_invite(email, current_user.hospital.hospital_name, notes, signup_link)
 
     return JSONResponse(
         content={
-            "message": "Your link has been created and forwarded to the admin's email successfully.",
+            "message": "Your link has been created and forwarded to the practitioner's email successfully.",
             "data": signup_link
         }
     )
 
 
-@auth_router.post("/auth/signup_link", tags=["Unique Signup Link Generator"])
+@auth_router.post("/auth/admin-signup_link", tags=["Unique Signup Link Generator"])
 async def generate_admin_signup_link(email: str, notes: str, admin_type: AdminType, request: Request, department_uid: uuid.UUID, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
 
     if not current_user.hospital:
-        raise errors.HospitalNotFound()
+        raise errors.HospitalNotFound
 
-    token = await link_service.create_admin_signup_link(email, notes, admin_type, current_user.hospital.uid, session, department_uid=department_uid)
+    department = await dpt_service.get_department_by_id(department_uid, session)
+    if not department:
+        raise errors.DepartmentNotFound()
+
+    token = await link_service.create_admin_signup_link(email, notes, admin_type, current_user.hospital.uid, session, department.uid)
 
     # Construct the full URL based on request
     base_url = str(request.base_url).rstrip("/")
@@ -445,7 +453,7 @@ async def generate_admin_signup_link(email: str, notes: str, admin_type: AdminTy
     signup_link = f"{base_url}{signup_path}?token={token}"
 
     #forward the link to the admin's email
-    mails.hospital_admin_invite(email, current_user.hospital.hospital_name, notes, signup_link)
+    # mails.hospital_admin_invite(email, current_user.hospital.hospital_name, notes, signup_link)
 
     return JSONResponse(
         content={

@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 from typing import List, Optional
+import uuid
 from fastapi import APIRouter, Depends, status, HTTPException
-from src.app.core.dependencies import RoleChecker, get_current_user
+from src.app.core.dependencies import get_current_user
 from sqlalchemy.ext.asyncio.session import AsyncSession
-from src.app.schemas import AppointmentCreate, AppointmentRead, DoctorAssign, AppointmentStatusUpdate, MedicalRecordCreate, RescheduleAppointment, AppointmentResponse
-from src.app.models import Admin, Doctor, User, Appointment, AppointmentStatus, UserRoles, AdminType
-from src.app.services import appointment as apt_service, patients as pat_service, hospital as hp_service, department as dpt_service, medical_records as med_service
+from src.app.schemas import AppointmentCreate, AppointmentRead, PractitionerAssign, AppointmentStatusUpdate, RescheduleAppointment, AppointmentResponse
+from src.app.models import Practitioner, User, Appointment, AppointmentStatus, UserRoles, AdminType
+from src.app.services import appointment as apt_service, patients as pat_service, hospital as hp_service, department as dpt_service
 from src.app.database.main import get_session
 from src.app.core import errors, permissions,mails
 from src.app.websocket.appointment_ws import notify_queue_update
@@ -32,9 +33,7 @@ async def add_appointment(payload: AppointmentCreate, session: AsyncSession = De
 
     """Please note, you can not edit an appointment after creating"""
 
-    patient_uid = current_user.patient.uid
-
-    patient = await pat_service.get_patient(patient_uid, session)
+    patient = await pat_service.get_patient(current_user.patient.uid, session) #type: ignore
 
     if not patient:
         raise errors.PatientNotFound()
@@ -47,7 +46,7 @@ async def add_appointment(payload: AppointmentCreate, session: AsyncSession = De
 
     # Check if time slot is available
     time_is_taken = await apt_service.appointment_by_schedule_time(
-        payload.hospital_uid, payload.scheduled_time, session)
+        payload.hospital_uid, payload.scheduled_time, session) #type: ignore
     
     if time_is_taken:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
@@ -79,7 +78,7 @@ async def add_appointment(payload: AppointmentCreate, session: AsyncSession = De
         raise errors.NotAuthorized()
 
     # Create the appointment
-    appointment = await apt_service.create_appointment(patient_uid, payload, session)
+    appointment = await apt_service.create_appointment(patient.uid, payload, session)
 
     #send email to patient
     mails.appointment_success(patient.user.email, patient.user, payload.scheduled_time, hospital)
@@ -105,8 +104,8 @@ async def get_appointments(status: Optional[AppointmentStatus] = None, skip: int
     return appointments
 
 
-@apt_router.get('/appointments/{patient_uid}/appointments', status_code=status.HTTP_200_OK, response_model=List[AppointmentRead])
-async def get_patient_appointments(patient_uid: str, skip: int = 0, limit: int = 10, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+@apt_router.get('/appointments/patient-appointments', status_code=status.HTTP_200_OK, response_model=List[AppointmentRead])
+async def get_patient_appointments(patient_uid: uuid.UUID, skip: int = 0, limit: int = 10, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
     patient = await pat_service.get_patient(patient_uid, session)
     
@@ -116,7 +115,8 @@ async def get_patient_appointments(patient_uid: str, skip: int = 0, limit: int =
     appointments = await apt_service.get_patient_appointments(patient_uid, skip, limit, session)
 
     #access control
-    return permissions.access_grant_for_patient_appointments(current_user, patient, appointments)
+    # permissions.access_grant_for_patient_appointments(current_user, patient.uid, )
+    return appointments
     
 
 # @apt_router.get('/appointments/{hospital_uid}/appointments', status_code=status.HTTP_200_OK, response_model=List[Appointment])
@@ -134,12 +134,13 @@ async def get_patient_appointments(patient_uid: str, skip: int = 0, limit: int =
 
 
 @apt_router.get('/appointments/uncompleted_appointments', status_code=status.HTTP_200_OK, response_model=List[Appointment])
-async def get_uncompleted_appointments(session: AsyncSession = Depends(get_session), current_user: User=Depends(get_current_user)):
+async def get_uncompleted_appointments(hospital_uid: uuid.UUID, session: AsyncSession = Depends(get_session), current_user: User=Depends(get_current_user)):
 
-    appointments = await apt_service.get_uncompleted_appointments(session)
+    appointments = await apt_service.get_uncompleted_appointments(hospital_uid, session)
 
     #access control
-    permissions.general_access_list(current_user, appointments)
+    if current_user.hospital is not None and current_user.hospital.uid != hospital_uid:
+        raise errors.NotAuthorized()
 
     return appointments
 
@@ -158,7 +159,7 @@ async def get_all_pending_appointments(
     Get all pending appointments filtered by current user's role and relationship.
     - SUPER_ADMIN: sees all pending appointments
     - HOSPITAL_ADMIN/HOSPITAL user: sees appointments in their hospital
-    - DOCTOR: sees appointments assigned to them
+    - PRACTITIONER: sees appointments assigned to them
     - PATIENT: sees their own appointments
     """
 
@@ -166,15 +167,15 @@ async def get_all_pending_appointments(
     appointments = await apt_service.get_all_pending_appointments(session)
 
     # Apply role-based access control
-    filtered_appointments = permissions.general_access_list(
-        current_user, appointments)
+    # filtered_appointments = permissions.general_access_list(
+    #     current_user, appointments)
 
-    return filtered_appointments
+    return appointments
 
 
 
-@apt_router.get('/appointments/{appointment_uid}', status_code=status.HTTP_200_OK, response_model=AppointmentResponse)
-async def get_appointment_by_id(appointment_uid: str, session: AsyncSession = Depends(get_session), current_user: User=Depends(get_current_user)):
+@apt_router.get('/appointments/appointmnet', status_code=status.HTTP_200_OK, response_model=AppointmentResponse)
+async def get_appointment_by_id(appointment_uid: uuid.UUID, session: AsyncSession = Depends(get_session), current_user: User=Depends(get_current_user)):
 
     appointment = await apt_service.get_appointment_by_id(appointment_uid, session)
 
@@ -187,8 +188,8 @@ async def get_appointment_by_id(appointment_uid: str, session: AsyncSession = De
     return appointment
 
 
-@apt_router.patch('/appointments/{appointment_uid}/cancel', status_code=status.HTTP_202_ACCEPTED)
-async def cancel_appointment(appointment_uid: str, session: AsyncSession = Depends(get_session), current_user: User=Depends(get_current_user)):
+@apt_router.patch('/appointments/cancel', status_code=status.HTTP_202_ACCEPTED)
+async def cancel_appointment(appointment_uid: uuid.UUID, session: AsyncSession = Depends(get_session), current_user: User=Depends(get_current_user)):
 
     appointment = await apt_service.get_appointment_by_id(appointment_uid, session)
 
@@ -207,14 +208,14 @@ async def cancel_appointment(appointment_uid: str, session: AsyncSession = Depen
     await notify_queue_update(session, appointment.hospital_uid)
 
     #send email to patient
-    mails.appointment_canceled(appointment.patient.user.email, appointment.patient.user, appointment.scheduled_time, appointment.hospital)
+    mails.appointment_canceled(appointment.patient.user.email, appointment.patient.user, appointment.scheduled_time, appointment.hospital) #type: ignore
 
     return {"message": "Appointment has been cancelled successfully!"}
 
 
 #set appointment status
 @apt_router.put('/appointments/status', status_code=status.HTTP_200_OK)
-async def update_appointment_status(appointment_uid: str, new_status: AppointmentStatusUpdate, session: AsyncSession = Depends(get_session), current_user: User=Depends(get_current_user)):
+async def update_appointment_status(appointment_uid: uuid.UUID, new_status: AppointmentStatusUpdate, session: AsyncSession = Depends(get_session), current_user: User=Depends(get_current_user)):
 
     appointment = await apt_service.get_appointment_by_id(appointment_uid, session)
 
@@ -232,8 +233,8 @@ async def update_appointment_status(appointment_uid: str, new_status: Appointmen
 
 
 
-@apt_router.delete('/appointments/{appointment_uid}/delete', status_code=status.HTTP_204_NO_CONTENT)
-async def delete_db_appointment(appointment_uid: str, session: AsyncSession = Depends(get_session), current_user: User=Depends(get_current_user)):
+@apt_router.delete('/appointments/delete', status_code=status.HTTP_204_NO_CONTENT)
+async def delete_db_appointment(appointment_uid: uuid.UUID, session: AsyncSession = Depends(get_session), current_user: User=Depends(get_current_user)):
 
     appointment = await apt_service.get_appointment_by_id(appointment_uid, session)
 
@@ -247,9 +248,9 @@ async def delete_db_appointment(appointment_uid: str, session: AsyncSession = De
     await apt_service.delete_appointment(appointment_uid, session)
 
 #reschedule appointment
-@apt_router.patch("/appointments/{appointment_uid}/reschedule")
+@apt_router.patch("/appointments/appointment-reschedule")
 async def reschedule_appointment(
-    appointment_uid: str,
+    appointment_uid: uuid.UUID,
     payload: RescheduleAppointment,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user)
@@ -262,7 +263,7 @@ async def reschedule_appointment(
     
     old_time = appointment.scheduled_time
 
-    patient_name = f"{current_user.patient.first_name} {current_user.patient.last_name}"
+    patient_name = f"{current_user.patient.first_name} {current_user.patient.last_name}" #type: ignore
 
     # Ensure scheduled_time is in the future
     if payload.new_time <= datetime.now(timezone.utc):
@@ -282,10 +283,10 @@ async def reschedule_appointment(
 
     new_appointment = await apt_service.reschedule_appointment(appointment_uid, payload, session, current_user)
 
-    new_appointment.updated_at = datetime.now(timezone.utc)
+    new_appointment.updated_at = datetime.now(timezone.utc) #type: ignore
 
     #inform the patient through email
-    mails.appointment_rescheduled(new_appointment.patient.user.email, patient_name, new_appointment.hospital.hospital_name, old_time, payload.new_time)
+    mails.appointment_rescheduled(new_appointment.patient.user.email, patient_name, new_appointment.hospital.hospital_name, old_time, payload.new_time) #type: ignore
 
     return {
         "message": "Appointment rescheduled successfully",

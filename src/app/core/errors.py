@@ -86,7 +86,7 @@ class MessageNotFound(ExceptionSystemManager):
     pass
 
 class PractitionerNotFound(ExceptionSystemManager):
-    """Doctor does not exist!"""
+    """Practitioner does not exist!"""
     pass
 
 class AppointmentNotFound(ExceptionSystemManager):
@@ -310,8 +310,8 @@ def register_all_errors(app: FastAPI):
         create_exception_handler(
             status_code=status.HTTP_404_NOT_FOUND,
             initial_detail={
-                "message": "Doctor not found",
-                "error_code": "doctor_not_found"
+                "message": "Practitioner not found",
+                "error_code": "practitioner_not_found"
             }
         )
     )

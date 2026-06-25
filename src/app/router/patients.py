@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, status
 from typing import Optional, List
 from sqlalchemy.ext.asyncio.session import AsyncSession
@@ -14,8 +16,8 @@ pat_router = APIRouter(
 )
 
 
-@pat_router.patch('/patients/{patient_uid}', status_code=status.HTTP_200_OK, response_model=PatientRead)
-async def update_patient_profile(patient_uid: str, payload: PatientProfileUpdate, session: AsyncSession=Depends(get_session), current_user: User = Depends(get_current_user)):
+@pat_router.patch('/patients/profile-update', status_code=status.HTTP_200_OK, response_model=PatientRead)
+async def update_patient_profile(patient_uid: uuid.UUID, payload: PatientProfileUpdate, session: AsyncSession=Depends(get_session), current_user: User = Depends(get_current_user)):
 
     """
     Update patient route
@@ -41,13 +43,13 @@ async def update_patient_profile(patient_uid: str, payload: PatientProfileUpdate
 async def get_all_patients(skip: int = 0, limit: int = 10, search: Optional[str] = "", session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
     """
-    Only Admins, Doctors, Hospitals has access to pull or view all patients
+    Only Admins, Practitioners, Hospitals has access to pull or view all patients
     """
     
     patients = await pat_service.get_all_patients(skip, limit, search, session)
 
     #authorized roles
-    allowed_access = {UserRoles.ADMIN, UserRoles.DOCTOR, UserRoles.HOSPITAL}
+    allowed_access = {UserRoles.ADMIN, UserRoles.PRACTITIONER, UserRoles.HOSPITAL}
 
     #check access
     if current_user.role not in allowed_access:
@@ -55,11 +57,11 @@ async def get_all_patients(skip: int = 0, limit: int = 10, search: Optional[str]
 
     return patients
 
-@pat_router.get('/patients/{patient_uid}', status_code=status.HTTP_200_OK, response_model=PatientRead)
-async def get_single_patient(patient_uid: str, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+@pat_router.get('/patients/single-patient', status_code=status.HTTP_200_OK, response_model=PatientRead)
+async def get_single_patient(patient_uid: uuid.UUID, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
     """
-    Only Admins, Doctors, Hospitals or the Patient itself has the access to pull or view patient's info by uid.
+    Only Admins, Practitioners, Hospitals or the Patient itself has the access to pull or view patient's info by uid.
     """
 
     patient = await pat_service.get_patient(patient_uid, session)
@@ -68,19 +70,20 @@ async def get_single_patient(patient_uid: str, session: AsyncSession = Depends(g
         raise errors.PatientNotFound()
     
     #authorized user
-    allowed_admins = {UserRoles.ADMIN, UserRoles.DOCTOR, UserRoles.HOSPITAL}
+    is_hospital = (current_user.hospital is not None and current_user.role in [UserRoles.HOSPITAL, UserRoles.ADMIN])
 
-    # Check if current user is an admin(endpoint is only accessible to super admins and hospital admins)
-    if current_user.role not in allowed_admins and current_user.uid != patient.user_uid:
-        raise errors.PatientNotFound()
+    is_patient = (current_user.uid == patient.user_uid)
+
+    if not (is_hospital or is_patient):
+        raise errors.NotAuthorized()
     
     return patient
 
-@pat_router.get('/patients/cards/{patient_card_id}', status_code=status.HTTP_200_OK, response_model=PatientRead)
+@pat_router.get('/patients/patient-card', status_code=status.HTTP_200_OK, response_model=PatientRead)
 async def fetch_patient(patient_card_id: str, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
     """
-    Only Admins, Doctors, Hospitals or the Patient itself has the access to pull or view patient's info by patient hospital card id.
+    Only Admins, Practitioners, Hospitals or the Patient itself has the access to pull or view patient's info by patient hospital card id.
     """
 
     patient = pat_service.get_patient_by_card(patient_card_id, session)
@@ -89,17 +92,17 @@ async def fetch_patient(patient_card_id: str, session: AsyncSession = Depends(ge
         raise errors.PatientNotFound()
     
     #authorized roles
-    allowed_admins = {UserRoles.ADMIN, UserRoles.DOCTOR, UserRoles.HOSPITAL}
+    allowed_users = {UserRoles.ADMIN, UserRoles.PRACTITIONER, UserRoles.HOSPITAL}
 
     #check access
-    if current_user.role not in allowed_admins:
+    if current_user.role not in allowed_users:
         raise errors.NotAuthorized()
     
     return patient
 
 
 @pat_router.delete('/patients/{patient_uid}', status_code=status.HTTP_204_NO_CONTENT)
-async def delete_patient(patient_uid: str, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user), admin_user: Admin = Depends(get_current_user)):
+async def delete_patient(patient_uid: uuid.UUID, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user), admin_user: Admin = Depends(get_current_user)):
 
     """
     Only Admins[SUPER_ADMIN, HOSPITAL_ADMIN], or the Patient itself has the access to delete.

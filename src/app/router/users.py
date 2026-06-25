@@ -1,4 +1,5 @@
 from typing import List
+import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from src.app.models import Admin, AdminType, User, UserRoles
@@ -39,7 +40,7 @@ async def get_all_users(skip: int = 0, limit: int = 100, session: AsyncSession =
     return users
 
 @user_router.get('/{user_id}', response_model=User)
-async def get_user_by_id(user_id: str, session: AsyncSession = Depends(get_session), current_user: User = Depends(require_super_admin)):
+async def get_user_by_id(user_id: uuid.UUID, session: AsyncSession = Depends(get_session), current_user: User = Depends(require_super_admin)):
     
     """Protected endpoint for super admins to get a user by uuid"""
 
@@ -51,12 +52,12 @@ async def get_user_by_id(user_id: str, session: AsyncSession = Depends(get_sessi
     else:
         raise errors.UserNotFound
 
-@user_router.delete('/{user_id}', status_code=200)
-async def delete_user(user_id: str, session: AsyncSession = Depends(get_session), current_user: Admin = Depends(require_super_admin)):
+@user_router.delete('/delete-user', status_code=200)
+async def delete_user(user_uid: uuid.UUID, session: AsyncSession = Depends(get_session), current_user: Admin = Depends(require_super_admin)):
 
     """Protected endpoint for super admins to delete a user"""
     
-    user_to_delete = await user_service.delete_user(user_uid=user_id, session=session)
+    user_to_delete = await user_service.delete_user(user_uid=user_uid, session=session)
 
     if user_to_delete is None:
         raise errors.UserNotFound()
@@ -78,7 +79,7 @@ async def update_profile_picture(
     session: AsyncSession = Depends(get_session),
 ):
     # validate image
-    if not file.content_type.startswith(
+    if not file.content_type.startswith( #type: ignore
         "image/"
     ):
         raise errors.FileUpload()

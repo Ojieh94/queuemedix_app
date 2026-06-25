@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import func
 from sqlmodel import select
 from sqlalchemy.ext.asyncio.session import AsyncSession
@@ -9,10 +11,10 @@ from src.app.models import Appointment, QueueEntry, AppointmentStatus, Queue, Qu
 
 async def create_queue_entry(
     appointment: Appointment, session: AsyncSession
-) -> QueueEntry:
+) -> QueueEntry | dict:
 
     # Validate appointment
-    if not appointment.doctor_uid:
+    if not appointment.practitioner_uid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Doctor has not been assigned to this appointment.",
@@ -64,14 +66,14 @@ async def create_queue_entry(
 
     # Save queue entry
     session.add(queue_entry)
-    session.commit()
-    session.refresh(queue_entry)
+    await session.commit()
+    await session.refresh(queue_entry)
 
     return {"message": "Queue entered successfully."}
 
 
 async def get_queue_by_appointment_uid(
-    session: AsyncSession, appointment_uid: str
+    session: AsyncSession, appointment_uid: uuid.UUID
 ) -> QueueEntry | None:
 
     statement = select(QueueEntry).where(QueueEntry.appointment_uid == appointment_uid)
@@ -81,7 +83,7 @@ async def get_queue_by_appointment_uid(
     return result.scalar_one_or_none()
 
 
-async def get_queue(session: AsyncSession, hospital_uid: str) -> Queue | None:
+async def get_queue(session: AsyncSession, hospital_uid: uuid.UUID) -> Queue | None:
 
     statement = select(Queue).where(Queue.hospital_uid == hospital_uid)
 
@@ -90,7 +92,7 @@ async def get_queue(session: AsyncSession, hospital_uid: str) -> Queue | None:
     return result.scalar_one_or_none()
 
 
-async def get_next_queue_number(queue_uid: str, session: AsyncSession) -> int:
+async def get_next_queue_number(queue_uid: uuid.UUID, session: AsyncSession) -> int:
     statement = select(func.max(QueueEntry.queue_number)).where(
         QueueEntry.queue_uid == queue_uid
     )
@@ -101,11 +103,11 @@ async def get_next_queue_number(queue_uid: str, session: AsyncSession) -> int:
 
     return (last_queue_number or 0) + 1
 
-async def get_active_queue_entry_by_patient_uid(session: AsyncSession, patient_uid: str) -> QueueEntry | None:
+async def get_active_queue_entry_by_patient_uid(session: AsyncSession, patient_uid: uuid.UUID) -> QueueEntry | None:
 
     statement = (select(QueueEntry) .where(
         QueueEntry.patient_uid == patient_uid,
-        QueueEntry.status.in_(
+        QueueEntry.status.in_( # type: ignore
             [
                 QueueEntryStatus.WAITING,
                 QueueEntryStatus.CALLED,
@@ -117,7 +119,7 @@ async def get_active_queue_entry_by_patient_uid(session: AsyncSession, patient_u
 
     return result.scalar_one_or_none()
 
-async def count_patients_ahead(session: AsyncSession, queue_uid: str, queue_number: int,) -> int:
+async def count_patients_ahead(session: AsyncSession, queue_uid: uuid.UUID, queue_number: int,) -> int:
 
     statement = select(
     func.count(QueueEntry.uid)).where(
@@ -127,7 +129,7 @@ async def count_patients_ahead(session: AsyncSession, queue_uid: str, queue_numb
 
     result = await session.execute(statement)
 
-    return result.scalar_one_or_none()
+    return result.scalar_one()
 
 
 async def get_queues(session: AsyncSession):
