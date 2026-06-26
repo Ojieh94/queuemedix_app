@@ -230,6 +230,7 @@ class PractitionerBase(BaseModel):
     first_name: str
     middle_name: Optional[str] = None
     last_name: str
+    title: str
     phone_number: str
     date_of_birth: Optional[date] = None
     gender: str
@@ -289,6 +290,7 @@ class PractitionerResponse(BaseModel):
     first_name: str
     middle_name: Optional[str] = None
     last_name: str
+    title: str
     specialization: str
     bio: Optional[str] = None
     is_available: bool = True
