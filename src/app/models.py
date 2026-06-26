@@ -386,7 +386,7 @@ class RescheduleHistory(SQLModel, table=True):
     reason: Optional[str] = Field(default=None, max_length=255)
     rescheduled_by: Optional[uuid.UUID] = Field(
         default=None)  # Could be doctor/hospital admin ID
-    rescheduled_at: datetime = Field(default=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
+    rescheduled_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True)))
 
     # Optional relationships
     appointment: Optional["Appointment"] = Relationship(
