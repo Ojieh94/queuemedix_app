@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from src.app.database.main import init_db, async_session_factory
-from src.app.services.sign_up_link import delete_expired_tokens
+from src.app.services.invitation import delete_expired_tokens
 from src.app.services import appointment as appt_service
 from src.app.core.errors import register_all_errors
 from src.app.middlewares import register_all_middlewares
