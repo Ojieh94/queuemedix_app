@@ -158,7 +158,7 @@ async def get_pending_practitioners(hospital_id: uuid.UUID, skip: int = 0, limit
 
 
 @practitioner_router.patch("/practitioner-status", status_code=status.HTTP_202_ACCEPTED)
-async def update_practitioner_status(practitioner_id: uuid.UUID, status: PractitionerStatus, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+async def update_practitioner_status(practitioner_id: uuid.UUID, practitioner_status: PractitionerStatus, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
     """Protected endpoint for hospital admins and hospital to approve practitioners after vetting
     
@@ -169,6 +169,11 @@ async def update_practitioner_status(practitioner_id: uuid.UUID, status: Practit
 
     if not practitioner:
         raise errors.PractitionerNotFound()
+    
+    if practitioner.status == practitioner_status:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=f"Practitioner already {practitioner.status.value}"
+        )
 
     is_hospital_admin = (
         current_user.admin is not None
@@ -190,9 +195,9 @@ async def update_practitioner_status(practitioner_id: uuid.UUID, status: Practit
         raise errors.NotAuthorized()
     
 
-    await pract_services.approve_practitioner(practitioner_id=practitioner_id, session=session, status=status)
+    await pract_services.approve_practitioner(practitioner_id=practitioner_id, session=session, status=practitioner_status)
     
-    return {"message": f"The Practitioner has been successfully updated to {practitioner.status.value}"}
+    return {"message": f"The Practitioner has been {practitioner.status.value} successfully!"}
 
 
 @practitioner_router.patch("/availability", status_code=status.HTTP_202_ACCEPTED)
