@@ -115,59 +115,6 @@ async def delete_admin(
     return {"message": "Admin deleted successfully"}
 
 
-
-
-@admin_router.patch('/appointments/assign-practitioner', status_code=status.HTTP_202_ACCEPTED)
-async def assign_practitioner(appointment_uid: uuid.UUID, payload: PractitionerAssign, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
-    
-    appointment = await appt_service.get_appointment_by_id(appointment_uid, session)
-
-    if not appointment:
-        raise errors.AppointmentNotFound()
-    
-    #access control
-    permissions.practitioner_assign_access(current_user, appointment)
-
-    
-    #Check if the practitioner is available...............(awaiting practitioner's service)
-    practitioner = await appt_service.get_single_practitioner(payload.practitioner_uid, session)
-
-    if not practitioner:
-        raise errors.PractitionerNotFound()
-    
-    if not practitioner.is_available:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The selected practitioner is currently unavailable")
-    
-    # Assign practitioner to the appointment
-    appointment.practitioner_uid = payload.practitioner_uid
-    appointment.status = AppointmentStatus.IN_PROGRESS
-
-    # Create queue entry
-    await queue.create_queue_entry(appointment, session)
-
-    await session.commit()
-    await session.refresh(appointment)
-
-    practitioner_full_name = " ".join(filter(None, [practitioner.first_name, practitioner.last_name]))
-
-   
-    #push notification to practitioner
-    await send_notification(session, practitioner.user_uid, {
-        "title": "Assigned Appointment",
-        "body": f"Hello {practitioner_full_name}, You have been assigned to {appointment.patient.first_name}'s appointment",
-        "data": {"appointment": appointment.uid}
-    })
-
-    # Push notification to patient
-    await send_notification(session, appointment.patient.user_uid, {
-        "title": " Assigned",
-        "body": f"Your appointment has been assigned to {practitioner.title}. {practitioner_full_name}",
-        "data": {"appointment_uid": str(appointment.uid)}
-    })
-
-    return {"message": "Practitioner assigned successfully!"}
-
-
 @admin_router.patch('/hospitals/approve-hospital', status_code=status.HTTP_200_OK)
 async def approve_hospital(hospital_uid: uuid.UUID, payload: VerifyHospital, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
 
