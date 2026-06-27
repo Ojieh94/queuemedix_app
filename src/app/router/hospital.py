@@ -227,3 +227,13 @@ async def update_cover_image(
     await session.refresh(current_user)
 
     return current_user
+
+@hp_router.get("/hospitals/hospital_patients", status_code=status.HTTP_200_OK, response_model=List[schemas.HospitalPatientRead])
+async def get_hospital_patients(session: AsyncSession=Depends(get_session), current_user:models.User = Depends(get_current_user)):
+    
+    if not current_user.hospital:
+        raise errors.HospitalNotFound()
+    
+    hospital_patients = await hp_service.get_hospital_patients(current_user.hospital.uid, session)
+
+    return hospital_patients

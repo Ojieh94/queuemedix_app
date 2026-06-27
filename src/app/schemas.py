@@ -176,6 +176,7 @@ class HospitalResponse(BaseModel):
     uid: uuid.UUID
     hospital_name: str
     full_address: str
+    cover_image: str
     user: UserProfile | None
 
     model_config = ConfigDict(from_attributes=True)
@@ -518,5 +519,25 @@ class AppointmentResponse(BaseModel):
     department: DepartmentResponse | None
     created_at: datetime
     updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HospitalPatientRead(BaseModel):
+    patient: PatientRead
+
+    first_visit_at: datetime
+    last_visit_at: datetime
+    visit_count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PatientHospitalRead(BaseModel):
+    hospital: HospitalResponse
+
+    first_visit_at: datetime
+    last_visit_at: datetime
+    visit_count: int
 
     model_config = ConfigDict(from_attributes=True)

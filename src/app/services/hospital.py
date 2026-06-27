@@ -5,7 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select, or_
-from src.app.models import Hospital, Practitioner, Appointment, AppointmentStatus, HospitalStatus, HospitalRating
+from src.app.models import Hospital, Patient, Practitioner, Appointment, AppointmentStatus, HospitalStatus, HospitalRating, HospitalPatient
 from typing import Optional, List
 from src.app.schemas import HospitalProfileUpdate, VerifyHospital, AssignAdminDuty
 from src.app.services import admins as ad_service
@@ -234,3 +234,57 @@ async def get_hospital_appointment_stats(hospital_uid: uuid.UUID, session: Async
         "in_progress_appointments": in_progress_appointments,
     }
     
+
+async def get_hospital_patients(hospital_uid: uuid.UUID, session: AsyncSession):
+
+    stmt = (
+        select(HospitalPatient)
+        .where(
+            HospitalPatient.hospital_uid == hospital_uid
+        )
+        .options(
+            selectinload(HospitalPatient.hospital).selectinload(Hospital.user),
+            selectinload(HospitalPatient.patient).selectinload(Patient.user),
+        )
+    )
+
+    result = await session.execute(stmt)
+
+    return result.scalars().all()
+
+
+async def get_patient_hospitals(patient_uid: uuid.UUID, session: AsyncSession):
+
+    stmt = (
+        select(HospitalPatient)
+        .where(
+            HospitalPatient.patient_uid == patient_uid
+        )
+        .options(
+            selectinload(HospitalPatient.patient).selectinload(Patient.user),
+            selectinload(HospitalPatient.hospital).selectinload(Hospital.user),
+        )
+    )
+
+    result = await session.execute(stmt)
+
+    return result.scalars().all()
+
+
+async def get_hospital_patient(hospital_uid: uuid.UUID, patient_uid: uuid.UUID, session: AsyncSession):
+
+    stmt = (
+        select(HospitalPatient)
+        .where(
+            HospitalPatient.hospital_uid == hospital_uid,
+            HospitalPatient.patient_uid == patient_uid,
+        )
+        .options(
+            selectinload(HospitalPatient.hospital).selectinload(Hospital.user),
+            selectinload(HospitalPatient.patient).selectinload(Patient.user),
+        )
+    )
+
+    result = await session.execute(stmt)
+
+    return result.scalar_one_or_none()
