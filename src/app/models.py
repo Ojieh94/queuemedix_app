@@ -1,7 +1,7 @@
 import sqlalchemy.dialects.postgresql as pg
 import uuid
 from sqlmodel import SQLModel, Field, Relationship, ForeignKey, Column
-from sqlalchemy import String, DateTime, Enum as pgEnum, Text
+from sqlalchemy import String, DateTime, Enum as pgEnum, Text, UniqueConstraint
 from datetime import datetime, timezone, date
 from enum import Enum
 from typing import Optional, List
@@ -189,6 +189,7 @@ class Hospital(SQLModel, table=True):
                                                           "lazy": "selectin", "cascade": "all, delete-orphan"}, passive_deletes=True)
     queues: List["Queue"] = Relationship(
         back_populates="hospital", sa_relationship_kwargs={"lazy": "selectin"}, passive_deletes=True)
+    hospital_patients: list["HospitalPatient"] = Relationship(back_populates="hospital")
 
 
 
@@ -226,6 +227,7 @@ class Patient(SQLModel, table=True):
                                                          "lazy": "selectin", "cascade": "all, delete-orphan"}, passive_deletes=True)
     queue_entries: List["QueueEntry"] = Relationship(
         back_populates="patient", sa_relationship_kwargs={"lazy": "selectin"}, passive_deletes=True)
+    hospital_patients: List["HospitalPatient"] = Relationship(back_populates="patient")
 
 
 # Hospital Ratings Model
@@ -665,3 +667,31 @@ class QueueEntry(SQLModel, table=True):
         back_populates="queue_entries", sa_relationship_kwargs={"lazy": "selectin"})
     queues: "Queue" = Relationship(
         back_populates="queue_entries", sa_relationship_kwargs={"lazy": "selectin"})
+
+
+class HospitalPatient(SQLModel, table=True):
+    __tablename__ = "hospital_patients" #type: ignore
+
+    uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(pg.UUID(as_uuid=True), primary_key=True, nullable=False))
+    hospital_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("hospitals.uid", ondelete="CASCADE"), nullable=False, index=True))
+    patient_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("patients.uid", ondelete="CASCADE"),nullable=False, index=True))
+    first_visit_at: datetime = Field( default_factory=lambda: datetime.now(timezone.utc),sa_column=Column(DateTime(timezone=True), nullable=False))
+    last_visit_at: datetime = Field( default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False) )
+    last_appointment_uid: uuid.UUID | None
+    visit_count: int = Field( default=1, sa_column=Column(pg.INTEGER, nullable=False))
+    is_active: bool = Field(default=False, sa_column=Column(pg.BOOLEAN, nullable=False))
+    created_at: datetime = Field( default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc),sa_column=Column( DateTime(timezone=True), 
+    onupdate=lambda: datetime.now(timezone.utc),nullable=False))
+
+    __table_args__ = (
+        UniqueConstraint(
+            "hospital_uid",
+            "patient_uid",
+            name="uq_hospital_patient",
+        ),
+    )
+
+    # Relationships
+    hospital: "Hospital" = Relationship(back_populates="hospital_patients")
+    patient: "Patient" = Relationship(back_populates="hospital_patients")

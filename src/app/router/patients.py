@@ -5,9 +5,9 @@ from typing import Optional, List
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from src.app.database.main import get_session
 from src.app.core.dependencies import get_current_user
-from src.app.schemas import PatientProfileUpdate, PatientRead
+from src.app.schemas import PatientProfileUpdate, PatientRead, PatientHospitalRead
 from src.app.models import User, UserRoles, Admin, AdminType
-from src.app.services import patients as pat_service
+from src.app.services import patients as pat_service, hospital as hp_service
 from src.app.core import errors
 
 
@@ -122,3 +122,14 @@ async def delete_patient(patient_uid: uuid.UUID, session: AsyncSession = Depends
     
     
     await pat_service.delete_patient(patient_uid, session)
+
+
+@pat_router.get("/patients/patient_hospitals", status_code=status.HTTP_200_OK, response_model=List[PatientHospitalRead])
+async def get_hospital_patients(session: AsyncSession=Depends(get_session), current_user:User = Depends(get_current_user)):
+    
+    if not current_user.patient:
+        raise errors.PatientNotFound()
+    
+    patient_hospitals = await hp_service.get_patient_hospitals(current_user.patient.uid, session)
+
+    return patient_hospitals

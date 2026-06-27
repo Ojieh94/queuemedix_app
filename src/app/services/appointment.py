@@ -6,8 +6,9 @@ from sqlmodel import select
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import update
 from typing import Any, List, Optional
-from src.app.models import Appointment, AppointmentStatus, Practitioner, User, RescheduleHistory, Hospital, Patient
+from src.app.models import Appointment, AppointmentStatus, HospitalPatient, Practitioner, User, RescheduleHistory, Hospital, Patient
 from src.app.schemas import AppointmentCreate, AppointmentStatusUpdate, RescheduleAppointment
+from src.app.services import hospital as hp_service
 from src.app.websocket.appointment_ws import notify_queue_update
 from src.app.services.notification import send_notification
 # from src.app.core import mails
@@ -219,7 +220,31 @@ async def switch_appointment_status(appointment_uid: uuid.UUID, new_status: Appo
     if not appointment:
         return None
     
+    old_status = appointment.status
     appointment.status = new_status.status
+
+    if (
+        old_status != AppointmentStatus.COMPLETED
+        and appointment.status == AppointmentStatus.COMPLETED
+    ):
+        hospital_patient = await hp_service.get_hospital_patient(
+            appointment.hospital_uid, appointment.patient_uid, session
+        )
+
+        if hospital_patient:
+            hospital_patient.visit_count += 1
+            hospital_patient.last_visit_at = datetime.now(timezone.utc)
+            hospital_patient.last_appointment_uid = appointment.uid
+        else:
+            hospital_patient = HospitalPatient(
+                hospital_uid=appointment.hospital_uid,
+                patient_uid=appointment.patient_uid,
+                first_visit_at=datetime.now(timezone.utc),
+                last_visit_at=datetime.now(timezone.utc),
+                visit_count=1,
+                last_appointment_uid=appointment.uid,
+            )
+            session.add(hospital_patient)
 
     await session.commit()
     await session.refresh(appointment)
