@@ -176,7 +176,7 @@ class HospitalResponse(BaseModel):
     uid: uuid.UUID
     hospital_name: str
     full_address: str
-    cover_image: str
+    cover_image: strfas
     user: UserProfile | None
 
     model_config = ConfigDict(from_attributes=True)
