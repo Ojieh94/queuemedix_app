@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from src.app.models import SignupLink, AdminType, PractitionerType
 
 
-async def create_admin_signup_link(email: str, notes: str, admin_type: AdminType, hospital_uid: uuid.UUID, session: AsyncSession, department_uid: uuid.UUID):
+async def admin_invitation(email: str, notes: str, admin_type: AdminType, hospital_uid: uuid.UUID, session: AsyncSession, department_uid: uuid.UUID):
     token = secrets.token_urlsafe(32)
 
     signup_link = SignupLink(token=token, email=email, admin_type=admin_type, hospital_uid=hospital_uid, notes=notes, department_uid=department_uid)
@@ -16,7 +16,7 @@ async def create_admin_signup_link(email: str, notes: str, admin_type: AdminType
     
     return token
 
-async def create_practitioner_signup_link(email: str, notes: str, type: PractitionerType, hospital_uid: uuid.UUID, department_uid: uuid.UUID, session: AsyncSession):
+async def practitioner_invitation(email: str, notes: str, type: PractitionerType, hospital_uid: uuid.UUID, department_uid: uuid.UUID, session: AsyncSession):
     token = secrets.token_urlsafe(32)
 
     signup_link = SignupLink(token=token, email=email, practitioner_type=type, hospital_uid=hospital_uid, notes=notes, department_uid=department_uid)

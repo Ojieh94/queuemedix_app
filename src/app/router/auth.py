@@ -9,7 +9,7 @@ from datetime import timedelta, datetime, timezone
 from src.app.schemas import RegisterUser, LoginData, EmailModel, RegisterAdminUser, RegisterPractitionerUser
 from src.app.database.main import get_session
 from src.app.models import User, AdminType, PractitionerType
-from src.app.services import user as user_service, auth as auth_service, sign_up_link as link_service, hospital as hp_service, department as dpt_service
+from src.app.services import user as user_service, auth as auth_service, invitation, hospital as hp_service, department as dpt_service
 from src.app.core.dependencies import get_current_user, refresh_token
 from src.app.core import celery, errors, settings, redis, mails
 from src.app import schemas
@@ -407,8 +407,8 @@ async def send_email(email: EmailModel):
     return {"message": "email sent successfully!"}
 
 
-@auth_router.post("/auth/practitioner-signup_link", tags=["Unique Signup Link Generator"])
-async def generate_practitioner_signup_link(email: str, notes: str, type: PractitionerType, request: Request, department_uid: uuid.UUID, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
+@auth_router.post("/auth/practitioner-invitation", tags=["Invitation Link Generator"])
+async def invite_practitioner(email: str, notes: str, type: PractitionerType, request: Request, department_uid: uuid.UUID, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
 
     department = await dpt_service.get_department_by_id(department_uid, session)
     if not department:
@@ -417,7 +417,7 @@ async def generate_practitioner_signup_link(email: str, notes: str, type: Practi
     if not current_user.hospital:
         raise errors.HospitalNotFound
 
-    token = await link_service.create_practitioner_signup_link(email, notes, type, current_user.hospital.uid, department_uid, session) 
+    token = await invitation.practitioner_invitation(email, notes, type, current_user.hospital.uid, department_uid, session) 
 
     # Construct the full URL based on request
     base_url = str(request.base_url).rstrip("/")
@@ -435,8 +435,8 @@ async def generate_practitioner_signup_link(email: str, notes: str, type: Practi
     )
 
 
-@auth_router.post("/auth/admin-signup_link", tags=["Unique Signup Link Generator"])
-async def generate_admin_signup_link(email: str, notes: str, admin_type: AdminType, request: Request, department_uid: uuid.UUID, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
+@auth_router.post("/auth/admin-invitation", tags=["Invitation Link Generator"])
+async def invite_admin(email: str, notes: str, admin_type: AdminType, request: Request, department_uid: uuid.UUID, current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
 
     if not current_user.hospital:
         raise errors.HospitalNotFound
@@ -445,7 +445,7 @@ async def generate_admin_signup_link(email: str, notes: str, admin_type: AdminTy
     if not department:
         raise errors.DepartmentNotFound()
 
-    token = await link_service.create_admin_signup_link(email, notes, admin_type, current_user.hospital.uid, session, department.uid)
+    token = await invitation.admin_invitation(email, notes, admin_type, current_user.hospital.uid, session, department.uid)
 
     # Construct the full URL based on request
     base_url = str(request.base_url).rstrip("/")
