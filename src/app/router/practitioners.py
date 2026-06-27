@@ -1,7 +1,7 @@
 # from pydoc import doc
 from typing import List
 import uuid
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from src.app.models import AdminType, PractitionerStatus, User, UserRoles, PractitionerType
 from src.app.core.dependencies import AccessTokenBearer, get_current_user
@@ -208,7 +208,11 @@ async def change_practitioner_availability(practitioner_id: uuid.UUID, session: 
 
     if not practitioner_to_update:
         raise errors.PractitionerNotFound()
-
+    
+    if practitioner_to_update.status != PractitionerStatus.APPROVED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Error! Either the selected practitioner has not been approved or have been suspended."
+        )
 
     is_practitioner = (
         current_user.practitioner is not None

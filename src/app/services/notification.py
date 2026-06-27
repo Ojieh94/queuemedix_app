@@ -20,8 +20,8 @@ async def send_notification(session: AsyncSession, user_uid: uuid.UUID, payload:
     await session.refresh(notif)
 
     # Push via websocket (channel = notifications, room = user_uid)
-    await manager.broadcast("notifications", str(user_uid), {
-        "uid": str(notif.uid),
+    await manager.broadcast("notifications", user_uid, { #type: ignore
+        "uid": notif.uid,
         "title": notif.title,
         "body": notif.body,
         "data": notif.data,
