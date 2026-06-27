@@ -10,7 +10,7 @@ from src.app.services import practitioners as pract_services
 from src.app.database.main import get_session
 from src.app.core import errors
 
-practitioner_router = APIRouter(prefix="/practitioners", tags=["practitioners"])
+practitioner_router = APIRouter(prefix="/practitioners", tags=["Practitioners"])
 access_token_bearer = AccessTokenBearer()
 
 
