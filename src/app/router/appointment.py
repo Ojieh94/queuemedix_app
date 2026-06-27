@@ -6,9 +6,10 @@ from src.app.core.dependencies import get_current_user
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from src.app.schemas import AppointmentCreate, AppointmentRead, PractitionerAssign, AppointmentStatusUpdate, RescheduleAppointment, AppointmentResponse
 from src.app.models import Practitioner, User, Appointment, AppointmentStatus, UserRoles, AdminType
-from src.app.services import appointment as apt_service, patients as pat_service, hospital as hp_service, department as dpt_service
+from src.app.services import appointment as apt_service, patients as pat_service, hospital as hp_service, department as dpt_service, queue
 from src.app.database.main import get_session
 from src.app.core import errors, permissions,mails
+from src.app.services.notification import send_notification
 from src.app.websocket.appointment_ws import notify_queue_update
 
 """
@@ -292,3 +293,60 @@ async def reschedule_appointment(
         "message": "Appointment rescheduled successfully",
         "appointment": new_appointment
     }
+
+
+@apt_router.patch('/appointments/assign-practitioner', status_code=status.HTTP_202_ACCEPTED)
+async def assign_practitioner(appointment_uid: uuid.UUID, payload: PractitionerAssign, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
+    
+    appointment = await apt_service.get_appointment_by_id(appointment_uid, session)
+
+    if not appointment:
+        raise errors.AppointmentNotFound()
+    
+    
+    if appointment.practitioner_uid:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="This appointment has been assigned already!"
+        )
+    
+    #access control
+    permissions.practitioner_assign_access(current_user, appointment)
+
+    
+    #Check if the practitioner is available...............(awaiting practitioner's service)
+    practitioner = await apt_service.get_single_practitioner(payload.practitioner_uid, session)
+
+    if not practitioner:
+        raise errors.PractitionerNotFound()
+    
+    if not practitioner.is_available:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The selected practitioner is currently unavailable")
+    
+    # Assign practitioner to the appointment
+    appointment.practitioner_uid = payload.practitioner_uid
+    appointment.status = AppointmentStatus.IN_PROGRESS
+
+    # Create queue entry
+    await queue.create_queue_entry(appointment, session)
+
+    await session.commit()
+    await session.refresh(appointment)
+
+    practitioner_full_name = " ".join(filter(None, [practitioner.first_name, practitioner.last_name]))
+
+   
+    #push notification to practitioner
+    await send_notification(session, practitioner.user_uid, {
+        "title": "Assigned Appointment",
+        "body": f"Hello {practitioner_full_name}, You have been assigned to {appointment.patient.first_name}'s appointment",
+        "data": {"appointment_uid": str(appointment.uid)}
+    })
+
+    # Push notification to patient
+    await send_notification(session, appointment.patient.user_uid, {
+        "title": "Appointment Assigned",
+        "body": f"Your appointment has been assigned to {practitioner.title}. {practitioner_full_name}",
+        "data": {"appointment_uid": str(appointment.uid)}
+    })
+
+    return {"message": "Practitioner assigned successfully!"}
