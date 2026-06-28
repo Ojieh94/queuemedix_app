@@ -90,6 +90,11 @@ class PractitionerType(str, Enum):
     LAB_SCIENTIST = "lab_scientist"
     PHYSIOTHERAPIST = "physiotherapist"
 
+class MediaType(str, Enum):
+    IMAGE = "image"
+    VIDEO = "video"
+    DOCUMENT = "document"
+
 
 class User(SQLModel, table=True):
     __tablename__ = "users" # type: ignore
@@ -190,8 +195,7 @@ class Hospital(SQLModel, table=True):
     queues: List["Queue"] = Relationship(
         back_populates="hospital", sa_relationship_kwargs={"lazy": "selectin"}, passive_deletes=True)
     hospital_patients: list["HospitalPatient"] = Relationship(back_populates="hospital")
-
-
+    media: list["HospitalMedia"] = Relationship(back_populates="hospital", sa_relationship_kwargs={"lazy": "selectin"})
 
 # Patient Model
 class Patient(SQLModel, table=True):
@@ -695,3 +699,23 @@ class HospitalPatient(SQLModel, table=True):
     # Relationships
     hospital: "Hospital" = Relationship(back_populates="hospital_patients")
     patient: "Patient" = Relationship(back_populates="hospital_patients")
+
+
+class HospitalMedia(SQLModel, table=True):
+    __tablename__ = "hospital_media" #type: ignore
+
+    uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(pg.UUID(as_uuid=True), primary_key=True, nullable=False,))
+    hospital_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("hospitals.uid", ondelete="CASCADE"), nullable=False, index=True,))
+    file_url: str
+    public_id: str
+    display_order: int
+    caption: str | None = None
+    media_type: MediaType = Field(default=MediaType.IMAGE, sa_column=Column(pgEnum(MediaType, values_callable=lambda enum: [e.value for e in enum], name="media_type"), nullable=False))
+    is_cover: bool = False
+    uploaded_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True))
+    )
+
+    # Relationship
+    hospital: "Hospital" = Relationship(back_populates="media")
