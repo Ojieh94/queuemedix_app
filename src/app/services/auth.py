@@ -32,7 +32,7 @@ async def register_user(payload: RegisterUser, session: AsyncSession):
             first_name=" ",
             middle_name="",
             last_name="",
-            hospital_card_id=" ",
+            hospital_card_id=new_user.username,
             phone_number=" ",
             date_of_birth=date.today(),
             gender=" ",

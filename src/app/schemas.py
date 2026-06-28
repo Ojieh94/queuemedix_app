@@ -158,6 +158,7 @@ class HospitalRead(HospitalBase):
     status: HospitalStatus = HospitalStatus.UNDER_REVIEW
     average_rating: float = 0.0
     cover_image: str
+    user: UserProfile
 
     model_config = ConfigDict(from_attributes=True)
 
