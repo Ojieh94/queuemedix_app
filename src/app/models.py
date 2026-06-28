@@ -712,6 +712,9 @@ class HospitalMedia(SQLModel, table=True):
     caption: str | None = None
     media_type: MediaType = Field(default=MediaType.IMAGE, sa_column=Column(pgEnum(MediaType, values_callable=lambda enum: [e.value for e in enum], name="media_type"), nullable=False))
     is_cover: bool = False
+    width: int = Field(sa_column=Column(pg.INTEGER, nullable=False))
+    height: int = Field(sa_column=Column(pg.INTEGER, nullable=False))
+    file_size: int = Field(sa_column=Column(pg.INTEGER, nullable=False))
     uploaded_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True))

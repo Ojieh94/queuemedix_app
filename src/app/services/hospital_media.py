@@ -15,6 +15,9 @@ async def create_hospital_media(
     caption: str,
     display_order: int,
     is_cover: bool,
+    width: int,
+    height: int,
+    file_size: int,
     session: AsyncSession,
 ) -> HospitalMedia:
     """
@@ -36,6 +39,9 @@ async def create_hospital_media(
         caption=caption,
         display_order=display_order,
         is_cover=is_cover,
+        width=width,
+        height=height,
+        file_size=file_size
     )
 
     session.add(media)

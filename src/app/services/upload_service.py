@@ -51,4 +51,7 @@ async def upload_hospital_media(file: UploadFile, folder: str):
     return {
         "url": result["secure_url"],
         "public_id": result["public_id"],
+        "width": result["width"],
+        "height": result["height"],
+        "bytes": result["bytes"]
     }
