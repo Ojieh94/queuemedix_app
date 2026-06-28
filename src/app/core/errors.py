@@ -17,6 +17,14 @@ class InvalidToken(ExceptionSystemManager):
     """Invalid token or expired token"""
     pass
 
+class FileTooLarge(ExceptionSystemManager):
+    """File is too large"""
+    pass
+
+class InvalidFileType(ExceptionSystemManager):
+    """Invalid file type"""
+    pass
+
 class TokenExpired(ExceptionSystemManager):
     """Token expired or user have been logged out"""
     pass
@@ -147,6 +155,31 @@ def register_all_errors(app: FastAPI):
             }
         )
     )
+
+    app.add_exception_handler(
+        InvalidFileType,
+        create_exception_handler(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            initial_detail={
+                "message": "Invalid media type",
+                "resolution": "Please upload a supported media.",
+                "error_code": "invalid_file_type"
+            }
+        )
+    )
+
+    app.add_exception_handler(
+        FileTooLarge,
+        create_exception_handler(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            initial_detail={
+                "message": "File is too large",
+                "resolution": "Please upload a smaller size",
+                "error_code": "large_file"
+            }
+        )
+    )
+
     # TokenExpired
     app.add_exception_handler(
         TokenExpired,
@@ -490,9 +523,9 @@ def register_all_errors(app: FastAPI):
             #No active token, create and send
             new_token = create_url_safe_token({"email": user_email})
 
-            emails = [user_email]
+            # emails = [user_email]
 
-            mails.send_verification_email(emails, new_token)
+            mails.send_verification_email(user_email, new_token)
 
             # Save the new token
             await redis.save_email_verification_token(user_email, new_token)

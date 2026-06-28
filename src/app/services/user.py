@@ -23,12 +23,10 @@ async def get_user_email(email: str, session: AsyncSession):
         .options(
             selectinload(User.admin),
             selectinload(User.patient),
-            selectinload(User.hospital).selectinload(Hospital.user),
-            selectinload(User.practitioner).selectinload(Practitioner.user),
+            selectinload(User.hospital).selectinload(Hospital.admin),
+            selectinload(User.hospital).selectinload(Hospital.department),
             selectinload(User.practitioner).selectinload(Practitioner.department),
-            selectinload(User.practitioner)
-            .selectinload(Practitioner.hospital)
-            .selectinload(Hospital.user),
+            selectinload(User.practitioner).selectinload(Practitioner.hospital),
         )
     )
     result = await session.execute(stmt)

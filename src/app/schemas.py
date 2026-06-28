@@ -542,3 +542,21 @@ class PatientHospitalRead(BaseModel):
     visit_count: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class HospitalMediaCreate(BaseModel):
+    file_url: str
+    public_id: str
+    caption: str | None
+    display_order: int
+    is_cover: bool
+
+class HospitalMediaRead(BaseModel):
+    uid: uuid.UUID
+    file_url: str
+    caption: str | None
+    is_cover: bool
+    display_order: int
+    uploaded_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
