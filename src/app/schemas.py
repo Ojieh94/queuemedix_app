@@ -557,6 +557,9 @@ class HospitalMediaRead(BaseModel):
     caption: str | None
     is_cover: bool
     display_order: int
+    width: int
+    height: int
+    file_size: int
     uploaded_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

@@ -60,6 +60,9 @@ async def upload_hospital_media(
         caption=caption, #type: ignore
         display_order=display_order,
         is_cover=is_cover,
+        width=upload["width"],
+        height=upload["height"],
+        file_size=upload["bytes"],
         session=session,
     )
 
