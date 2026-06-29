@@ -6,6 +6,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from src.app.models import PractitionerStatus, Hospital, PractitionerType, Practitioner
 from src.app.schemas import PractitionerProfileUpdate
+from src.app.services import department as dpt_service
 
 
 async def search_practitioner(
@@ -157,13 +158,16 @@ async def delete_practitioner(practitioner_id: uuid.UUID, session: AsyncSession)
     
     practitioner = await get_practitioner(practitioner_id=practitioner_id, session=session)
 
-    if practitioner is not None:
-
-        await session.delete(practitioner)
-
-        await session.commit()
-
-        return {}
-
-    else:
+    if practitioner is None:
         return None
+
+       
+    if practitioner.department_uid is not None:
+        department = await dpt_service.get_department_by_id(practitioner.department_uid, session)
+
+        if department:
+            department.practitioner_count -= 1
+
+    
+    await session.delete(practitioner)
+    await session.commit()

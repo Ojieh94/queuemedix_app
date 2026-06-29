@@ -410,6 +410,8 @@ class Department(SQLModel, table=True):
         "hospitals.uid", ondelete="CASCADE"), nullable=False, index=True))
     name: str = Field(sa_column=Column(
         String, unique=True, index=True, nullable=False))
+    description: str = Field(sa_column=Column(String, nullable=True))
+    practitioner_count: int = Field(default=0, sa_column=Column(pg.INTEGER, nullable=True))
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True),
                          default=lambda: datetime.now(timezone.utc))
