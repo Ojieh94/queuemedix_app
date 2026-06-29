@@ -8,14 +8,18 @@ from src.app import validators
 ######### ............Department Model.............###########
 class DepartmentCreate(BaseModel):
     name: str
+    description: str | None
 
 
 class DepartmentUpdate(BaseModel):
     name: Optional[str] = None
+    description: str | None = None
 
 class DepartmentRead(BaseModel):
     uid: uuid.UUID
     name: str
+    description: str
+    practitioner_count: int
    
 
     model_config = ConfigDict(from_attributes=True)
@@ -24,6 +28,8 @@ class DepartmentRead(BaseModel):
 class DepartmentResponse(BaseModel):
     uid: uuid.UUID
     name: str
+    description: str
+    practitioner_count: int
 
     model_config = ConfigDict(from_attributes=True)
 

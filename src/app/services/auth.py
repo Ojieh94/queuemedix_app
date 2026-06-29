@@ -4,6 +4,7 @@ from sqlmodel import select
 from src.app.schemas import RegisterUser, RegisterAdminUser, RegisterPractitionerUser
 from src.app.models import User, Patient, Hospital, Practitioner, Admin, AdminType, SignupLink, Queue
 from src.app.core.utils import hash_password
+from src.app.services import department as dpt_service
 from datetime import date, datetime, timedelta, timezone
 import uuid
 
@@ -144,6 +145,13 @@ async def register_practitioners(payload: RegisterPractitionerUser, token: str, 
 
     # Mark the token as used
     signup_link.is_used = True
+
+    if signup_link.department_uid is not None:
+
+        department = await dpt_service.get_department_by_id(signup_link.department_uid, session)
+
+        if department:
+            department.practitioner_count += 1
 
     await session.commit()
     print("Committed successfully")
