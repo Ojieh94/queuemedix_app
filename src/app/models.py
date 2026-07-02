@@ -1,7 +1,7 @@
 import sqlalchemy.dialects.postgresql as pg
 import uuid
 from sqlmodel import SQLModel, Field, Relationship, ForeignKey, Column
-from sqlalchemy import String, DateTime, Enum as pgEnum, Text, UniqueConstraint
+from sqlalchemy import CheckConstraint, SmallInteger, String, DateTime, Enum as pgEnum, Text, UniqueConstraint
 from datetime import datetime, timezone, date
 from enum import Enum
 from typing import Optional, List
@@ -169,6 +169,7 @@ class Hospital(SQLModel, table=True):
         pgEnum(HospitalStatus, values_callable=lambda enum: [e.value for e in enum], name="hospital_status"), nullable=False))
     hospital_ceo: str = Field(default=None)
     average_rating: float = Field(default=0.0, sa_column=Column(pg.NUMERIC(2,1), nullable=False, default=0.0))
+    rating_count: int = Field(default=0)
     is_verified: bool = Field(
         default=False, sa_column=Column(pg.BOOLEAN, nullable=False))
     cover_image: Optional[str] = Field(default=None, sa_column=Column(
@@ -196,6 +197,8 @@ class Hospital(SQLModel, table=True):
         back_populates="hospital", sa_relationship_kwargs={"lazy": "selectin"}, passive_deletes=True)
     hospital_patients: list["HospitalPatient"] = Relationship(back_populates="hospital")
     media: list["HospitalMedia"] = Relationship(back_populates="hospital", sa_relationship_kwargs={"lazy": "selectin"})
+    reviews: List["Review"] = Relationship(back_populates="hospital")
+
 
 # Patient Model
 class Patient(SQLModel, table=True):
@@ -205,6 +208,7 @@ class Patient(SQLModel, table=True):
         pg.UUID(as_uuid=True), nullable=False, primary_key=True))
     first_name: str = Field(default=None)
     middle_name: Optional[str] = Field(default=None)
+    title: Optional[str] = Field(default=None)
     last_name: str = Field(default=None)
     hospital_card_id: str = Field(default=None, nullable=True)
     phone_number: str = Field(default=None)
@@ -232,6 +236,7 @@ class Patient(SQLModel, table=True):
     queue_entries: List["QueueEntry"] = Relationship(
         back_populates="patient", sa_relationship_kwargs={"lazy": "selectin"}, passive_deletes=True)
     hospital_patients: List["HospitalPatient"] = Relationship(back_populates="patient")
+    reviews: List["Review"] = Relationship(back_populates="patient")
 
 
 # Hospital Ratings Model
@@ -260,7 +265,7 @@ class Practitioner(SQLModel, table=True):
     first_name: str = Field(default=None)
     middle_name: Optional[str] = Field(default=None)
     last_name: str = Field(default=None)
-    title: str = Field(default=None)
+    title: Optional[str] = Field(default=None)
     phone_number: str = Field(default=None)
     date_of_birth: Optional[date] = Field(default=None)
     gender: str = Field(default=None)
@@ -279,6 +284,8 @@ class Practitioner(SQLModel, table=True):
     bio: Optional[str] = Field(default=None)
     status: PractitionerStatus = Field(default=PractitionerStatus.UNDER_REVIEW, sa_column=Column(
         pgEnum(PractitionerStatus, values_callable=lambda enum: [e.value for e in enum], name="practitioner_status"), nullable=False))
+    average_rating: float = Field(default=0.0, sa_column=Column(pg.NUMERIC(2,1), nullable=False, default=0.0))
+    rating_count: int = Field(default=0)
     is_available: bool = Field(
         default=False, sa_column=Column(pg.BOOLEAN, nullable=False))
     years_of_experience: int = Field(default=None)
@@ -299,6 +306,7 @@ class Practitioner(SQLModel, table=True):
         back_populates="practitioners", sa_relationship_kwargs={"lazy": "selectin"})
     medical_record: List["MedicalRecord"] = Relationship(
         back_populates="practitioner", sa_relationship_kwargs={"lazy": "selectin"}, passive_deletes=True)
+    reviews: List["Review"] = Relationship(back_populates="practitioner")
 
 
 # Admin Model
@@ -310,6 +318,7 @@ class Admin(SQLModel, table=True):
     first_name: str = Field(default=None)
     middle_name: Optional[str] = Field(default=None)
     last_name: str = Field(default=None)
+    title: Optional[str] = Field(default=None)
     hospital_uid: Optional[uuid.UUID] = Field(default=None, sa_column=Column(pg.UUID(
         as_uuid=True), ForeignKey("hospitals.uid", ondelete="CASCADE"), nullable=True, index=True))
     user_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey(
@@ -379,7 +388,7 @@ class Appointment(SQLModel, table=True):
         back_populates="appointment", sa_relationship_kwargs={"lazy": "selectin"}, passive_deletes=True)
     queue_entries: Optional["QueueEntry"] = Relationship(
         back_populates="appointment", sa_relationship_kwargs={"lazy": "selectin"}, passive_deletes=True)
-
+    review: "Review" = Relationship(back_populates="appointment")
 
 # Appointment Reschedule History
 class RescheduleHistory(SQLModel, table=True):
@@ -724,3 +733,44 @@ class HospitalMedia(SQLModel, table=True):
 
     # Relationship
     hospital: "Hospital" = Relationship(back_populates="media")
+
+
+
+class Review(SQLModel, table=True):
+    __tablename__ = "reviews" #type: ignore
+
+    __table_args__ = (
+        CheckConstraint(
+            "hospital_rating BETWEEN 1 AND 5",
+            name="ck_hospital_rating",
+        ),
+        CheckConstraint(
+            "practitioner_rating BETWEEN 1 AND 5",
+            name="ck_practitioner_rating",
+        ),
+    )
+
+    uid: uuid.UUID = Field(default_factory=uuid.uuid4, sa_column=Column(pg.UUID(as_uuid=True), primary_key=True, nullable=False,),)
+
+    appointment_uid: uuid.UUID = Field(sa_column=Column( pg.UUID(as_uuid=True), ForeignKey("appointments.uid", ondelete="CASCADE"), nullable=False, unique=True, index=True,))
+
+    patient_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("patients.uid", ondelete="CASCADE"), nullable=False, index=True,))
+
+    hospital_uid: uuid.UUID = Field(sa_column=Column(pg.UUID(as_uuid=True), ForeignKey("hospitals.uid", ondelete="CASCADE"), nullable=False, index=True,))
+
+    practitioner_uid: uuid.UUID = Field(sa_column=Column( pg.UUID(as_uuid=True), ForeignKey("practitioners.uid", ondelete="CASCADE"), nullable=False, index=True,))
+
+    hospital_rating: int = Field(sa_column=Column(SmallInteger, nullable=False))
+
+    practitioner_rating: int = Field( sa_column=Column(SmallInteger, nullable=False))
+
+    comment: str | None = Field(default=None, sa_column=Column(Text))
+
+    created_at: datetime = Field( default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), nullable=False))
+
+    updated_at: datetime = Field( default_factory=lambda: datetime.now(timezone.utc), sa_column=Column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc), nullable=False,))
+
+    appointment: "Appointment" = Relationship(back_populates="review")
+    patient: "Patient" = Relationship(back_populates="reviews")
+    hospital: "Hospital" = Relationship(back_populates="reviews")
+    practitioner: "Practitioner" = Relationship(back_populates="reviews")

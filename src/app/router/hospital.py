@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from src.app.core.dependencies import get_current_user
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from src.app import schemas, models
-from src.app.services import hospital as hp_service, admins as ad_service, notification
+from src.app.services import hospital as hp_service, admins as ad_service, notification, review
 from src.app.core import errors, permissions
 from src.app.database.main import get_session
 from fastapi import UploadFile, File
@@ -237,3 +237,19 @@ async def get_hospital_patients(session: AsyncSession=Depends(get_session), curr
     hospital_patients = await hp_service.get_hospital_patients(current_user.hospital.uid, session)
 
     return hospital_patients
+
+
+@hp_router.get("/hospitals/reviews", response_model=list[schemas.ReviewRead], tags=["Reviews"])
+async def get_hospital_reviews(offset: int = 0, limit: int = 20, current_user: models.User=Depends(get_current_user), session: AsyncSession=Depends(get_session),):
+
+    if not current_user.hospital:
+        raise errors.NotAuthorized()
+
+    reviews = await review.get_hospital_reviews(
+        hospital_uid=current_user.hospital.uid,
+        offset=offset,
+        limit=limit,
+        session=session,
+    )
+
+    return reviews
