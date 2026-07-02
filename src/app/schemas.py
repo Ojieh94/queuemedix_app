@@ -1,4 +1,4 @@
-from pydantic import AfterValidator, BaseModel, EmailStr, field_validator, ConfigDict
+from pydantic import AfterValidator, BaseModel, EmailStr, Field, field_validator, ConfigDict
 import uuid
 from datetime import datetime, date
 from typing import Annotated, Optional
@@ -164,7 +164,6 @@ class HospitalRead(HospitalBase):
     status: HospitalStatus = HospitalStatus.UNDER_REVIEW
     average_rating: float = 0.0
     cover_image: str
-    user: UserProfile
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -188,6 +187,11 @@ class HospitalResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class HospitalAdmin(BaseModel):
+    uid: uuid.UUID
+    hospital_name: str
+
+    model_config = ConfigDict(from_attributes=True)
 
 ########## ........Patient Model........##########
 class PatientBase(BaseModel):
@@ -232,6 +236,11 @@ class PatientRead(PatientBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class PatientMe(PatientBase):
+    uid: uuid.UUID
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 ########## .........Practitioner Model...........################
 class PractitionerBase(BaseModel):
@@ -269,8 +278,6 @@ class PractitionerProfileUpdate(BaseModel):
     gender: Optional[str] = None
     country: Optional[str] = None
     state_of_residence: Optional[str] = None
-    hospital_uid: Optional[uuid.UUID] = None
-    department_uid: Optional[uuid.UUID] = None
     license_number: Optional[str] = None
     specialization: Optional[str] = None
     qualification: Optional[str] = None
@@ -288,12 +295,12 @@ class PractitionerRead(PractitionerBase):
     status: PractitionerStatus = PractitionerStatus.UNDER_REVIEW
     hospital: HospitalResponse | None
     department: DepartmentResponse | None
-    user: UserProfile | None
     practitioner_type: PractitionerType
+    user: UserProfile | None
 
     model_config = ConfigDict(from_attributes=True)
 
-class PractitionerResponse(BaseModel):
+class PractitionerMe(BaseModel):
     uid: uuid.UUID
     first_name: str
     middle_name: Optional[str] = None
@@ -302,9 +309,13 @@ class PractitionerResponse(BaseModel):
     specialization: str
     bio: Optional[str] = None
     is_available: bool = True
-    user: UserProfile | None
     department: DepartmentResponse | None
     practitioner_type: PractitionerType
+
+    model_config = ConfigDict(from_attributes=True)
+
+class PractitionerResponse(PractitionerMe):
+    user: UserProfile | None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -345,6 +356,15 @@ class AdminRead(AdminBase):
     user: UserProfile | None
 
     model_config = ConfigDict(from_attributes=True)
+
+class AdminMe(AdminBase):
+    uid: uuid.UUID
+    hospital: HospitalAdmin | None
+    department: DepartmentResponse | None
+    notes: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 
 ######### .........Appointment Model..........#########
@@ -500,9 +520,9 @@ class UserReadMe(UserBase):
     profile_picture: Optional[str]
     created_at: datetime
     updated_at: datetime
-    admin: Optional[AdminRead]
-    patient: Optional[PatientRead]
-    practitioner: Optional[PractitionerRead]
+    admin: Optional[AdminMe]
+    patient: Optional[PatientMe]
+    practitioner: Optional[PractitionerMe]
     hospital: Optional[HospitalRead]
 
     model_config = ConfigDict(from_attributes=True)
@@ -567,5 +587,61 @@ class HospitalMediaRead(BaseModel):
     height: int
     file_size: int
     uploaded_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class PatientReviewResponse(BaseModel):
+    uid: uuid.UUID
+    first_name: str
+    middle_name: str
+    last_name: str
+    user: UserProfile
+
+    model_config = ConfigDict(from_attributes=True)
+
+class PractitionerReviewResponse(BaseModel):
+    uid: uuid.UUID
+    first_name: str
+    middle_name: str
+    last_name: str
+    title: str
+    specialization: str
+    user: UserProfile
+
+    model_config = ConfigDict(from_attributes=True)
+
+class HospitalReviewResponse(BaseModel):
+    uid: uuid.UUID
+    hospital_name: str
+    user: UserProfile
+
+    model_config = ConfigDict(from_attributes=True)
+
+class ReviewCreate(BaseModel):
+    appointment_uid: uuid.UUID
+    hospital_rating: int = Field(ge=1, le=5)
+    practitioner_rating: int = Field(ge=1, le=5)
+    comment: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("comment")
+    @classmethod
+    def validate_comment(cls, value: str | None):
+        if value:
+            value = value.strip()
+            if not value:
+                return None
+        return value
+
+
+class ReviewRead(BaseModel):
+    uid: uuid.UUID
+    appointment_uid: uuid.UUID
+    hospital_rating: int
+    practitioner_rating: int
+    comment: str | None
+    created_at: datetime
+    patient: PatientReviewResponse
+    practitioner: PractitionerReviewResponse    
+    hospital: HospitalReviewResponse
 
     model_config = ConfigDict(from_attributes=True)

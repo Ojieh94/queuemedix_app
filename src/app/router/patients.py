@@ -5,9 +5,9 @@ from typing import Optional, List
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from src.app.database.main import get_session
 from src.app.core.dependencies import get_current_user
-from src.app.schemas import PatientProfileUpdate, PatientRead, PatientHospitalRead
+from src.app.schemas import PatientProfileUpdate, PatientRead, PatientHospitalRead, ReviewRead
 from src.app.models import User, UserRoles, Admin, AdminType
-from src.app.services import patients as pat_service, hospital as hp_service
+from src.app.services import patients as pat_service, hospital as hp_service, review
 from src.app.core import errors
 
 
@@ -133,3 +133,19 @@ async def get_hospital_patients(session: AsyncSession=Depends(get_session), curr
     patient_hospitals = await hp_service.get_patient_hospitals(current_user.patient.uid, session)
 
     return patient_hospitals
+
+
+@pat_router.get("/patients/reviews", response_model=list[ReviewRead], tags=["Reviews"])
+async def get_patient_reviews(offset: int = 0, limit: int = 20, current_user: User=Depends(get_current_user), session: AsyncSession=Depends(get_session),):
+
+    if not current_user.patient:
+        raise errors.NotAuthorized()
+
+    reviews = await review.get_patient_reviews(
+        patient_uid=current_user.patient.uid,
+        offset=offset,
+        limit=limit,
+        session=session,
+    )
+
+    return reviews

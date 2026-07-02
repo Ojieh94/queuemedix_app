@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from src.app.models import AdminType, PractitionerStatus, User, UserRoles, PractitionerType
 from src.app.core.dependencies import AccessTokenBearer, get_current_user
-from src.app.schemas import PractitionerProfileUpdate, PractitionerRead
-from src.app.services import practitioners as pract_services
+from src.app.schemas import PractitionerProfileUpdate, PractitionerRead, ReviewRead
+from src.app.services import practitioners as pract_services, review
 from src.app.database.main import get_session
 from src.app.core import errors
 
@@ -101,7 +101,7 @@ async def get_all_practitioners(
     return practitioners
 
 
-@practitioner_router.get('/practitioner', status_code=status.HTTP_200_OK, response_model=PractitionerRead)
+@practitioner_router.get('/me', status_code=status.HTTP_200_OK, response_model=PractitionerRead)
 async def get_practitioner(practitioner_id: uuid.UUID, session: AsyncSession = Depends(get_session), current_user: User = Depends(get_current_user)):
     
     """Protected endpoint to get a practitioner by uuid"""
@@ -279,3 +279,17 @@ async def update_practitioner_profile(practitioner_id: uuid.UUID, update_data: P
     
     return updated_practitioner
 
+@practitioner_router.get("/reviews", response_model=list[ReviewRead], tags=["Reviews"])
+async def get_practitioner_reviews(offset: int = 0, limit: int = 20, current_user: User=Depends(get_current_user), session: AsyncSession=Depends(get_session),):
+
+    if not current_user.practitioner:
+        raise errors.NotAuthorized()
+
+    reviews = await review.get_practitioner_reviews(
+        practitioner_uid=current_user.practitioner.uid,
+        offset=offset,
+        limit=limit,
+        session=session,
+    )
+
+    return reviews

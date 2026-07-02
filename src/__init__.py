@@ -17,7 +17,7 @@ from src.app.router import (
     practitioners, 
     users,
     message,
-    statistics, queue, hospital_media)
+    statistics, queue, hospital_media, review)
 from src.app.websocket import notification_ws, appointment_ws, support_chat
 
 version = "v1"
@@ -94,6 +94,9 @@ app.include_router(hospital_media.media_router, prefix=f"/api/{version}")
 app.include_router(statistics.stats_router, prefix=f"/api/{version}")
 app.include_router(department.dept_router, prefix=f"/api/{version}")
 app.include_router(patients.pat_router, prefix=f"/api/{version}")
+app.include_router(practitioners.practitioner_router, prefix=f"/api/{version}")
+app.include_router(review.review_router, prefix=f"/api/{version}")
+app.include_router(appointment.apt_router, prefix=f"/api/{version}")
 app.include_router(practitioners.practitioner_router, prefix=f"/api/{version}")
 app.include_router(appointment.apt_router, prefix=f"/api/{version}")
 app.include_router(admins.admin_router, prefix=f"/api/{version}")
